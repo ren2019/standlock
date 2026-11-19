@@ -1,0 +1,34 @@
+import Foundation
+import Testing
+import StandLockCore
+
+@MainActor
+@Suite("Local status publisher")
+struct LocalStatusPublisherTests {
+    @Test
+    func publishesAnExplicitVersionedSnapshotOnlyWhenEnabled() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("status.json")
+        let now = Date(timeIntervalSince1970: 1_794_010_000)
+        let publisher = LocalStatusPublisher(directory: directory, notificationName: .init(UUID().uuidString)) {
+            LocalStatusSnapshot(updatedAt: now, planState: .work, nextBreakAt: nil, inputIdleSeconds: 42.5)
+        }
+
+        publisher.refreshForPlanChange()
+        #expect(!FileManager.default.fileExists(atPath: file.path))
+
+        publisher.start()
+        defer { publisher.stop() }
+        let exported = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+        #expect(Set(exported.keys) == ["schemaVersion", "updatedAt", "planState", "nextBreakAt", "inputIdleSeconds"])
+        #expect(exported["schemaVersion"] as? Int == 1)
+        #expect(exported["updatedAt"] as? String == "2026-11-07T00:06:40Z")
+        #expect(exported["planState"] as? String == "work")
+        #expect(exported["nextBreakAt"] is NSNull)
+        #expect(exported["inputIdleSeconds"] as? Double == 42.5)
+
+        publisher.stop()
+        #expect(!FileManager.default.fileExists(atPath: file.path))
+    }
+}

@@ -60,6 +60,7 @@ extension SettingsPage {
         case .general:
             [
                 "General", "Startup", "Launch at Startup", "Language and appearance", "Language", "Appearance",
+                "Local integrations", "Share Local Status",
                 "Settings File", "Export Settings", "Import Settings", "Reset", "Reset StandLock",
             ]
         case .menuBar:

@@ -1092,6 +1092,22 @@
         }
       }
     },
+    "Let local apps read your break schedule and input idle time." : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yerel uygulamaların mola zamanını ve giriş yapılmayan süreyi okumasına izin verir."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让本机应用读取休息计划和输入空闲时长。"
+          }
+        }
+      }
+    },
     "Links" : {
       "localizations" : {
         "tr" : {
@@ -1104,6 +1120,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "链接"
+          }
+        }
+      }
+    },
+    "Local integrations" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yerel entegrasyonlar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地集成"
           }
         }
       }
@@ -2339,6 +2371,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "设置文件"
+          }
+        }
+      }
+    },
+    "Share Local Status" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yerel durumu paylaş"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享本机状态"
           }
         }
       }

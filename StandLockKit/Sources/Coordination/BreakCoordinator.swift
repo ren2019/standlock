@@ -105,6 +105,8 @@ public final class BreakCoordinator {
     /// The break owed after a postpone, until it returns. The wait itself lives in `breakTimer`,
     /// which lock, sleep and pause cancel; this is what lets them start it again.
     private var postponedSchedule: Schedule?
+    /// The first clear poll in the current postpone wait. A new call or a cancelled wait clears it.
+    private var postponedClearSince: Date?
     /// The external break owed after a postpone. Not carried across a rebuild: a session's
     /// restore reopens its break from the saved phase.
     private var postponedExternal: ExternalBreak?
@@ -237,6 +239,26 @@ public final class BreakCoordinator {
             pendingBreakDates: pendingBreakDates,
             postponedScheduleID: postponedSchedule?.id ?? dormantPostponedScheduleID
         )
+    }
+
+    /// The ordinary schedule's state for local readers. A postpone can have a countdown and
+    /// still be a postponed break, even though the menu bar displays only the countdown.
+    public func localStatus(now: Date = Date()) -> (planState: LocalStatusSnapshot.PlanState, nextBreakAt: Date?) {
+        if pomodoro != nil { return (.inactive, nil) }
+        if currentBreak != nil { return (currentSchedule == nil ? .inactive : .breakActive, nil) }
+        if postponedSchedule != nil {
+            let returnAt = postponedClearSince.map { postponeReturnDate(since: $0) }
+            return (.postponed, returnAt.flatMap { $0 > now ? $0 : nil })
+        }
+        if isSuspended { return (.inactive, nil) }
+        if isPaused { return (.paused, nil) }
+        if isDeferringBreak { return (.deferred, nil) }
+        guard breakTimer != nil, let pendingBreakDate else { return (.inactive, nil) }
+
+        let inWorkWindow = activeSchedules.contains {
+            $0.isEnabled && !isCapReached($0) && scheduler.isWithinActiveWindow($0, at: now)
+        }
+        return (inWorkWindow ? .work : .inactive, pendingBreakDate > now ? pendingBreakDate : nil)
     }
 
     public func stop() {
@@ -450,33 +472,30 @@ public final class BreakCoordinator {
 
     private func startPostponeWait(for source: BreakSource) {
         breakTimer?.cancel()
+        postponedClearSince = nil
         // Keeps `refreshDailyRollover` from re-arming over the wait. The pending slot stays nil:
         // `triggerBreak` already advanced the cycle, and a set ID would let a menu skip advance it again.
         isDeferringBreak = true
         breakTimer = Task {
-            var clearSince: Date?
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(self.deferralPollingInterval))
                 guard !Task.isCancelled else { return }
                 let context = await self.detector.currentContext()
                 guard !Task.isCancelled else { return }
                 if context.cameraActive || context.microphoneActive {
-                    clearSince = nil
+                    self.postponedClearSince = nil
                     self.eventContinuation.yield(.breakDeferred(.postponed, nextAttempt: Date().addingTimeInterval(self.deferralPollingInterval)))
                     continue
                 }
-                let since = clearSince ?? Date()
-                if clearSince == nil {
+                let since = self.postponedClearSince ?? Date()
+                if self.postponedClearSince == nil {
                     // Lets the menu bar count down to the return instead of sitting at 0:00.
-                    var returnAt = since.addingTimeInterval(self.preferences.postponeReturnDelay)
-                    if let notBefore = self.launchGuard?.notBefore { returnAt = max(returnAt, notBefore) }
-                    self.eventContinuation.yield(.nextBreakScheduled(returnAt))
+                    self.postponedClearSince = since
+                    self.eventContinuation.yield(.nextBreakScheduled(self.postponeReturnDate(since: since)))
                 }
-                clearSince = since
                 // A postponed break carried in from before an unclean exit returns here, not
                 // through `scheduleNextBreak`.
-                if Date().timeIntervalSince(since) >= self.preferences.postponeReturnDelay,
-                   self.launchGuard.map({ $0.notBefore <= Date() }) ?? true {
+                if Date() >= self.postponeReturnDate(since: since) {
                     self.clearPendingBreak()
                     if source.schedule == nil { self.postponedExternal = nil } else { self.postponedSchedule = nil }
                     self.presentBreak(for: source, context: context, canPostpone: false)
@@ -484,6 +503,12 @@ public final class BreakCoordinator {
                 }
             }
         }
+    }
+
+    private func postponeReturnDate(since: Date) -> Date {
+        let returnAt = since.addingTimeInterval(preferences.postponeReturnDelay)
+        if let notBefore = launchGuard?.notBefore { return max(returnAt, notBefore) }
+        return returnAt
     }
 
     public func completeActiveBreak() {
@@ -635,6 +660,7 @@ public final class BreakCoordinator {
         pendingBreakScheduleID = nil
         pendingBreakDate = nil
         isDeferringBreak = false
+        postponedClearSince = nil
     }
 
     private func isCapReached(_ schedule: Schedule) -> Bool {

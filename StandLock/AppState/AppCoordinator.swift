@@ -34,6 +34,13 @@ final class AppCoordinator: ObservableObject {
     @Published var pausedUntil: Date?
     @Published var schedules: [Schedule] = []
     @Published var preferences: AppPreferences = AppPreferences()
+    @Published var sharesLocalStatus = UserDefaults.standard.bool(forKey: AppCoordinator.localStatusSharingKey) {
+        didSet {
+            guard oldValue != sharesLocalStatus else { return }
+            UserDefaults.standard.set(sharesLocalStatus, forKey: Self.localStatusSharingKey)
+            updateLocalStatusPublisher()
+        }
+    }
     @Published var hasCompletedOnboarding: Bool = false
     @Published private(set) var breakProgress: Double = 0
     @Published private(set) var menuBarTimerText: String?
@@ -46,6 +53,22 @@ final class AppCoordinator: ObservableObject {
     let settingsNavigation = SettingsNavigation()
     let permissionChecker: PermissionChecker
     private let breakSoundPlayer = BreakSoundPlayer()
+    private static let localStatusSharingKey = "sharesLocalStatus"
+    private lazy var localStatusPublisher: LocalStatusPublisher = {
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.yagizdokumaci.standlock.debug"
+        let directory = URL.applicationSupportDirectory
+            .appendingPathComponent(bundleID, isDirectory: true)
+            .appendingPathComponent("LocalStatus", isDirectory: true)
+        return LocalStatusPublisher(directory: directory, notificationName: .init(bundleID + ".localStatusDidChange")) {
+            [weak self] in
+            let now = Date()
+            let plan = self?.coordinator?.localStatus(now: now) ?? (planState: .inactive, nextBreakAt: nil)
+            return LocalStatusSnapshot(
+                updatedAt: now, planState: plan.planState, nextBreakAt: plan.nextBreakAt,
+                inputIdleSeconds: IdleDetector().idleDuration()
+            )
+        }
+    }()
 
     private var coordinator: BreakCoordinator?
     /// Survives the coordinator-less interval between a teardown and the next build.
@@ -104,6 +127,7 @@ final class AppCoordinator: ObservableObject {
             MainActor.assumeIsolated {
                 self?.saveEnforcementState()
                 self?.savePomodoroSession()
+                self?.localStatusPublisher.stop()
             }
         }
         NotificationCenter.default.addObserver(
@@ -136,6 +160,7 @@ final class AppCoordinator: ObservableObject {
         // Always built: a Pomodoro session runs with no schedule enabled.
         startCoordinator(restoring: carriedStateForToday())
         restoreSavedPomodoroSession()
+        updateLocalStatusPublisher()
         if launchGuard != nil {
             UserDefaults.standard.set(Date(), forKey: Self.lastUncleanExitKey)
             // A run loop block, not a Task: `runModal` inside a main-actor job holds the main
@@ -157,6 +182,14 @@ final class AppCoordinator: ObservableObject {
               let data = try? Data(contentsOf: url),
               let decoded = try? JSONDecoder().decode([Exercise].self, from: data) else { return }
         loadedExercises = decoded
+    }
+
+    private func updateLocalStatusPublisher() {
+        if sharesLocalStatus {
+            localStatusPublisher.start()
+        } else {
+            localStatusPublisher.stop()
+        }
     }
 
     // MARK: - Persistence
@@ -255,6 +288,7 @@ final class AppCoordinator: ObservableObject {
         // land on the next coordinator rebuild.
         applyCalendarPreferences()
         updateMenuBarTimer()
+        localStatusPublisher.refreshForPlanChange()
     }
 
     /// The Settings list reads this; refreshed on launch and whenever permissions change.
@@ -528,6 +562,7 @@ final class AppCoordinator: ObservableObject {
             coordinator?.pause(for: pauseRemaining)
         }
         clearNextBreakIfIdle()
+        localStatusPublisher.refreshForPlanChange()
     }
 
     /// With no enabled schedule and no session nothing is armed; the stale countdown would
@@ -612,6 +647,7 @@ final class AppCoordinator: ObservableObject {
             breakHistory = breakHistory.recordingAbandoned(session)
             saveHistory()
         }
+        localStatusPublisher.refreshForPlanChange()
     }
 
     // MARK: - Schedule Management
@@ -695,11 +731,13 @@ final class AppCoordinator: ObservableObject {
         center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.coordinator?.handleSystemSleep()
+                self?.localStatusPublisher.refreshForPlanChange()
             }
         }
         center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.coordinator?.handleSystemWake()
+                self?.localStatusPublisher.refreshForPlanChange()
             }
         }
 
@@ -707,11 +745,13 @@ final class AppCoordinator: ObservableObject {
         distributed.addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.coordinator?.handleScreenLock()
+                self?.localStatusPublisher.refreshForPlanChange()
             }
         }
         distributed.addObserver(forName: .init("com.apple.screenIsUnlocked"), object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.coordinator?.handleScreenUnlock()
+                self?.localStatusPublisher.refreshForPlanChange()
             }
         }
     }
