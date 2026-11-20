@@ -1876,6 +1876,38 @@
         }
       }
     },
+    "Version %@ (Build %@) · Fork Preview %@" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sürüm %@ (Yapı %@) · Fork Önizleme %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本 %@（构建 %@）· Fork 试用版 %@"
+          }
+        }
+      }
+    },
+    "Version %@ · Fork Preview" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sürüm %@ · Fork Önizleme"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本 %@ · Fork 试用版"
+          }
+        }
+      }
+    },
     "Wait for me to return" : {
       "localizations" : {
         "tr" : {
