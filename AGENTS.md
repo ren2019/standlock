@@ -12,3 +12,5 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing anything. It covers setu
 - Do not edit `CHANGELOG.md`. Release notes are written at release time.
 - Do not add dependencies without an issue agreeing to it first.
 - Keep AI out of git metadata: no `Co-Authored-By:` trailers naming an AI tool, no "Generated with" lines in commits or PR descriptions.
+
+For issue tracking, triage, and domain vocabulary, see [Agent skills](CLAUDE.md#agent-skills).
