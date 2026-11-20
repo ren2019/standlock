@@ -22,7 +22,11 @@ struct WorkModeSettingsView: View {
         if coordinator.preferences.workScheduleMode == .flexible {
             FlexibleWorkForm(
                 saved: coordinator.preferences.flexibleWork,
-                onSave: { coordinator.preferences.flexibleWork = $0 }
+                onSave: { settings in
+                    guard coordinator.preferences.flexibleWork != settings else { return }
+                    coordinator.preferences.flexibleWork = settings
+                    coordinator.savePreferences()
+                }
             )
         }
     }
@@ -50,27 +54,46 @@ private struct FlexibleWorkForm: View {
 
     var body: some View {
         Group {
-            ScheduleFormView(draft: $draft, schedule: saved.schedule, rhythmOnly: true)
+            ScheduleFormView(
+                draft: Binding(get: { draft }, set: updateDraft),
+                schedule: saved.schedule,
+                rhythmOnly: true
+            )
             SettingsSection {
-                SettingsToggleRow("Daily break limit", symbol: "number", isOn: $hasCap)
+                SettingsToggleRow("Daily break limit", symbol: "number", isOn: Binding(
+                    get: { hasCap },
+                    set: {
+                        hasCap = $0
+                        onSave(settings)
+                    }
+                ))
                 if hasCap {
                     SettingsRowDivider()
                     SettingsRow("Maximum breaks per day", symbol: "number") {
-                        Stepper(value: $cap, in: 1...100) {
+                        Stepper(value: Binding(
+                            get: { cap },
+                            set: {
+                                cap = $0
+                                onSave(settings)
+                            }
+                        ), in: 1...100) {
                             Text(verbatim: String(cap)).monospacedDigit()
                         }
                         .accessibilityLabel("Maximum breaks per day")
                     }
                 }
             }
-            Button("Save") { onSave(settings) }
-                .buttonStyle(.borderedProminent)
-                .disabled(settings == saved)
         }
         .onChange(of: saved) { values in
+            guard settings != values else { return }
             draft = ScheduleDraft(schedule: values.schedule)
             cap = values.dailyBreakCap ?? 5
             hasCap = values.dailyBreakCap != nil
         }
+    }
+
+    private func updateDraft(_ value: ScheduleDraft) {
+        draft = value
+        onSave(settings)
     }
 }
