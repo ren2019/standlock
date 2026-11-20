@@ -9,18 +9,18 @@ Most of the logic lives in `StandLockKit`, a plain Swift package. For changes th
 For the app itself:
 
 ```bash
-git clone https://github.com/yagizdo/StandLock.git
-cd StandLock
+git clone https://github.com/ren2019/standlock.git
+cd standlock
 open StandLock.xcodeproj
 ```
 
-Xcode will complain that it has no account for my signing team. Pick your own team, or "Sign to Run Locally", under Signing & Capabilities, and leave that change out of your commit.
+The checked-in project uses the upstream signing team. Pick your own team, or choose "Sign to Run Locally" under Signing & Capabilities. Keep signing changes local.
 
 The project file is generated from `project.yml` with [XcodeGen](https://github.com/yonaskolb/XcodeGen) and committed, so you don't need XcodeGen installed. Add, move, or delete files through Xcode as usual. The project is regenerated from the folder contents anyway, so nothing you add gets lost. Build settings belong in `project.yml`, since anything set directly in the project file is lost on the next regeneration.
 
 ## Tests
 
-Every test lives in `StandLockKit`, one test target per module (`StandLockCore`, `Scheduling`, `Detection`, `Locking`, `Coordination`). CI runs the suite on each PR.
+Every test lives in `StandLockKit`, one test target per module (`StandLockCore`, `Scheduling`, `Detection`, `Locking`, `Coordination`). CI runs the suite and builds the macOS app for pull requests and pushes to `main`.
 
 ```bash
 swift test --package-path StandLockKit

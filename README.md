@@ -29,6 +29,8 @@ brew install --cask yagizdo/tap/standlock
 
 Or [download the DMG](https://github.com/yagizdo/StandLock/releases/latest) and drag StandLock to Applications. Requires macOS 13 or later. Start on Gentle, where one click gets you out, and get stricter when you're ready.
 
+The Homebrew cask and DMG install the official upstream release. [Build this fork](#build-from-source) to use its work schedule modes, manual break controls, and local status sharing.
+
 ## Features
 
 ### Hard to ignore
@@ -54,13 +56,20 @@ Or [download the DMG](https://github.com/yagizdo/StandLock/releases/latest) and 
 - Several schedules, each with its own days, hours and level
 - Templates for 20-20-20, Pomodoro and 52/17
 - Alternating intervals, like 58 minutes sitting and 28 standing
-- Every break of the day listed before you save
+- Preview a fixed schedule's break times before saving
 - Breaks wait for meetings, screen recordings, screen sharing and calendar events
 - If you were already away from your desk, the break counts as done
-- You can postpone a scheduled break again when it returns
 - Start a Pomodoro session from the menu bar: 25 min focus, 5 min breaks, a 15 min long break after four rounds, all adjustable in Settings › Pomodoro. It can cover the screen during focus instead, for work away from the Mac
 
 <p align="center"><img src="assets/schedules.png" width="460" alt="Schedule form with days, hours, alternating intervals and the day's break times"></p>
+
+### Work schedule modes in this fork
+
+In **Settings › General › Work schedule mode**, choose **Fixed work hours** to use the calendar schedules in the sidebar. With **Flexible work**, the work timer starts after one minute of sustained activity or immediately when you choose **Start work** in the menu bar. Flexible work has its own rhythm and daily break limit. Edits save automatically, and each mode keeps its settings when you switch.
+
+- After a flexible-work break, choose **I'm back** to start the next work interval. For fixed schedules, enable **Settings › Break Screen › Wait for me to return** to get the same confirmation.
+- Choose **Break now** in the menu bar to bring the next scheduled break forward during a work interval. The default delay is five seconds. Adjust it under **Settings › Break Screen › Break now delay**.
+- **Postpone** brings back the same scheduled break after the camera and microphone have both been free for the delay set in **Settings › Detection**. You can postpone it again after it returns.
 
 ### A scene in your menu bar
 
@@ -109,28 +118,28 @@ StandLock does not open your camera or microphone. It only checks whether anothe
 
 Enable **Settings › General › Share Local Status** to let a local app read StandLock's ordinary schedule and the Mac's input idle time. The switch is off by default and applies to this Mac.
 
-Read `~/Library/Application Support/com.yagizdokumaci.standlock/LocalStatus/status.json` at startup. StandLock replaces the snapshot atomically and posts the distributed notification `com.yagizdokumaci.standlock.localStatusDidChange` when the plan, reminder time, or postpone count changes. The notification tells readers to reopen the file and carries no data.
+In Release builds of this fork, read `~/Library/Application Support/com.yagizdokumaci.standlock/LocalStatus/status.json` at startup. StandLock replaces the snapshot atomically and posts the distributed notification `com.yagizdokumaci.standlock.localStatusDidChange` when the plan, reminder time, or postpone count changes. The notification tells readers to reopen the file and carries no data.
 
 | Field | Meaning |
 |-------|---------|
 | `schemaVersion` | The snapshot format version, currently `1`. |
 | `updatedAt` | UTC ISO 8601 time the snapshot was written. Treat it as stale after 15 seconds. |
-| `planState` | `work`, `break`, `postponed`, `deferred`, `paused`, or `inactive`. A Pomodoro session makes the ordinary schedule inactive. |
+| `planState` | `work`, `break`, `postponed`, `deferred`, `paused`, or `inactive`. A Pomodoro session or flexible work waiting to start makes the ordinary schedule inactive. |
 | `nextBreakAt` | UTC ISO 8601 time of the next reminder, or `null` when unknown. During a postpone, the return time can change while the state stays `postponed`. |
 | `postponeCount` | Manual postpones of the current scheduled break. The number carries across reminders of the same break and resets to 0 when it ends. Automatic deferrals leave the count at 0. |
 | `inputIdleSeconds` | Seconds since recent Mac input at the time of the snapshot, or `null` when unavailable. This value describes device activity. |
 
-The file refreshes about every five seconds while sharing is enabled. Turning off the switch or quitting removes it. Debug builds use the separate `com.yagizdokumaci.standlock.debug` identifier in the path and notification name.
+The file refreshes about every five seconds while sharing is enabled. Turning off the switch or quitting removes it. Older v1 snapshots may omit `postponeCount`. Debug builds use the separate `com.yagizdokumaci.standlock.debug` identifier in the path and notification name.
 
 ## Build from source
 
 ```bash
-git clone https://github.com/yagizdo/StandLock.git
-cd StandLock
+git clone https://github.com/ren2019/standlock.git
+cd standlock
 open StandLock.xcodeproj
 ```
 
-Build and run the `StandLock` scheme.
+Build and run the `StandLock` scheme. See [CONTRIBUTING.md](CONTRIBUTING.md#setup) for local signing and tests.
 
 ## Contributing
 
