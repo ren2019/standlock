@@ -7,7 +7,7 @@ struct PermissionsView: View {
 
     var body: some View {
         SettingsPageLayout("Permissions") {
-            if coordinator.schedules.contains(where: scheduleUsesStrict) {
+            if coordinator.configuredScheduleSettings.contains(where: scheduleUsesStrict) {
                 SettingsGroup("Needed by your schedules") {
                     if !checker.strictModeAvailable {
                         SettingsSection { strictWarning }

@@ -60,6 +60,8 @@ extension SettingsPage {
         case .general:
             [
                 "General", "Startup", "Launch at Startup", "Language and appearance", "Language", "Appearance",
+                "Work schedule mode", "Fixed work hours", "Flexible work", "Daily break limit",
+                "Local integrations", "Share Local Status",
                 "Settings File", "Export Settings", "Import Settings", "Reset", "Reset StandLock",
             ]
         case .menuBar:
@@ -68,7 +70,7 @@ extension SettingsPage {
             [
                 "Break Screen", "Look", "Custom Break Colors", "Background", "Text", "Preview", "Content",
                 "Show Statistics", "Show Pomodoro chip", "Break Message", "During a break", "Pause Media",
-                "Sound when a break ends", "Sound before a break",
+                "Sound when a break ends", "Sound before a break", "Wait for me to return", "Break now delay",
             ]
         case .discipline:
             [

@@ -111,7 +111,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "因通话而推迟的休息，会在麦克风和摄像头都关闭后这么多分钟到来。"
+            "value" : "点击「推迟」后，等麦克风和摄像头都停止使用才开始计时，达到设定的分钟数后再次提醒休息。"
           }
         }
       }
@@ -740,6 +740,54 @@
         }
       }
     },
+    "Fixed work hours" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sabit çalışma saatleri"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定工作时段"
+          }
+        }
+      }
+    },
+    "Flexible work" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esnek çalışma"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不定时工作"
+          }
+        }
+      }
+    },
+    "Flexible work starts after one minute of sustained activity or when you choose Start work." : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bir dakika kesintisiz kullanımın ardından veya Çalışmaya başla seçildiğinde esnek çalışma başlar."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连续使用电脑满一分钟后自动开工，也可以在菜单栏选择「开工」。"
+          }
+        }
+      }
+    },
     "Focus %lld/%lld" : {
       "localizations" : {
         "tr" : {
@@ -1092,6 +1140,22 @@
         }
       }
     },
+    "Let local apps read your break schedule and input idle time." : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yerel uygulamaların mola zamanını ve giriş yapılmayan süreyi okumasına izin verir."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让本机应用读取休息计划和输入空闲时长。"
+          }
+        }
+      }
+    },
     "Links" : {
       "localizations" : {
         "tr" : {
@@ -1104,6 +1168,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "链接"
+          }
+        }
+      }
+    },
+    "Local integrations" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yerel entegrasyonlar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地集成"
           }
         }
       }
@@ -1796,6 +1876,54 @@
         }
       }
     },
+    "Version %@ (Build %@) · Fork Preview %@" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sürüm %@ (Yapı %@) · Fork Önizleme %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本 %@（构建 %@）· Fork 试用版 %@"
+          }
+        }
+      }
+    },
+    "Version %@ · Fork Preview" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sürüm %@ · Fork Önizleme"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本 %@ · Fork 试用版"
+          }
+        }
+      }
+    },
+    "Wait for me to return" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dönmemi bekle"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等我回来再继续"
+          }
+        }
+      }
+    },
     "Wait for the countdown, then type the sentence shown on the break screen. With Progressive Enforcement on, some breaks ask for a short game instead." : {
       "localizations" : {
         "tr" : {
@@ -2258,7 +2386,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通话结束后返回"
+            "value" : "推迟后再次提醒"
           }
         }
       }
@@ -2339,6 +2467,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "设置文件"
+          }
+        }
+      }
+    },
+    "Share Local Status" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yerel durumu paylaş"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享本机状态"
           }
         }
       }
@@ -2467,6 +2611,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "开始番茄钟"
+          }
+        }
+      }
+    },
+    "Start work" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Çalışmaya başla"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开工"
           }
         }
       }
@@ -2819,6 +2979,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "连续 %lld 次"
+          }
+        }
+      }
+    },
+    "%lld seconds" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld saniye"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 秒"
           }
         }
       }
@@ -3428,6 +3604,38 @@
         }
       }
     },
+    "Break now" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Şimdi mola ver"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现在休息"
+          }
+        }
+      }
+    },
+    "Break now delay" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mola başlatma gecikmesi"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现在休息的缓冲时间"
+          }
+        }
+      }
+    },
     "Break postponed" : {
       "comment" : "DeferralReason.displayName",
       "extractionState" : "manual",
@@ -3990,6 +4198,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "自定义休息颜色"
+          }
+        }
+      }
+    },
+    "Daily break limit" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Günlük mola sınırı"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每日休息上限"
           }
         }
       }
@@ -5114,6 +5338,22 @@
         }
       }
     },
+    "I'm back" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geri döndüm"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我回来了"
+          }
+        }
+      }
+    },
     "I'm in this picture and I don't like it" : {
       "comment" : "Break splash",
       "extractionState" : "manual",
@@ -5521,6 +5761,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "分"
+          }
+        }
+      }
+    },
+    "Maximum breaks per day" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Günde en fazla mola sayısı"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每天最多休息次数"
           }
         }
       }
@@ -8025,6 +8281,22 @@
         }
       }
     },
+    "Waiting to start work" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Çalışmanın başlaması bekleniyor"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待开工"
+          }
+        }
+      }
+    },
     "Walk Around the Room" : {
       "comment" : "Exercise title",
       "extractionState" : "manual",
@@ -8953,6 +9225,22 @@
         }
       }
     },
+    "Work schedule mode" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Çalışma planı modu"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工作排程模式"
+          }
+        }
+      }
+    },
     "Working" : {
       "localizations" : {
         "tr" : {
@@ -9545,6 +9833,22 @@
         }
       }
     },
+    "Keep the break screen open after the timer ends. Confirm when you are back to start the next interval." : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sayaç sona erdiğinde mola ekranı açık kalır. Dönünce onaylayarak sonraki aralığı başlatın."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "倒计时结束后保留休息画面。回来时确认，才开始下一轮计时。"
+          }
+        }
+      }
+    },
     "Keyboard and mouse are blocked. Hold Control, Option and Command to leave. Needs permission in System Settings." : {
       "localizations" : {
         "tr" : {
@@ -9557,6 +9861,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "键盘和鼠标会被锁定。按住 Control、Option 和 Command 即可退出。需要在系统设置中授权。"
+          }
+        }
+      }
+    },
+    "Seconds to get ready before a break you start from the menu bar." : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menü çubuğundan başlattığınız moladan önce hazırlanmak için ayrılan süre."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从菜单栏主动开始休息时，进入全屏前的准备时间。"
           }
         }
       }

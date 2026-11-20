@@ -16,6 +16,23 @@ struct BreakScreenSettingsView: View {
 
     var body: some View {
         SettingsPageLayout("Break Screen") {
+            SettingsSection {
+                SettingsToggleRow(
+                    "Wait for me to return",
+                    symbol: "hand.wave",
+                    description: "Keep the break screen open after the timer ends. Confirm when you are back to start the next interval.",
+                    isOn: $coordinator.preferences.waitForBreakReturn
+                )
+                SettingsRowDivider()
+                SettingsRow("Break now delay", symbol: "timer", description: "Seconds to get ready before a break you start from the menu bar.") {
+                    Stepper(value: $coordinator.preferences.breakNowDelaySeconds, in: AppPreferences.breakNowDelayRange) {
+                        Text("\(coordinator.preferences.breakNowDelaySeconds) seconds")
+                            .monospacedDigit()
+                    }
+                    .accessibilityLabel("Break now delay")
+                }
+            }
+
             SettingsSection("Preview") {
                 BreakScreenPreviewCard(
                     look: BreakScreenLook.resolve(theme: themeStore.current, level: .gentle, breakScreen: breakScreen),

@@ -31,6 +31,11 @@ public struct AppPreferences: Codable, Sendable, Equatable {
     public var soundAfterBreak: Bool
 
     public var resetIntervalOnSkip: Bool
+    public var waitForBreakReturn: Bool
+    public static let breakNowDelayRange = 0...60
+    public var breakNowDelaySeconds: Int
+    public var workScheduleMode: WorkScheduleMode
+    public var flexibleWork: FlexibleWorkSettings
 
     public var showFullWorkTimer: Bool
     public var menuBarCountdownMinutes: Int
@@ -60,6 +65,10 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         soundBeforeBreak: Bool = false,
         soundAfterBreak: Bool = false,
         resetIntervalOnSkip: Bool = true,
+        waitForBreakReturn: Bool = false,
+        breakNowDelaySeconds: Int = 5,
+        workScheduleMode: WorkScheduleMode = .fixed,
+        flexibleWork: FlexibleWorkSettings = FlexibleWorkSettings(),
         showFullWorkTimer: Bool = false,
         menuBarCountdownMinutes: Int = 1,
         menuScene: MenuScene = .hourglass,
@@ -85,6 +94,10 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         self.soundBeforeBreak = soundBeforeBreak
         self.soundAfterBreak = soundAfterBreak
         self.resetIntervalOnSkip = resetIntervalOnSkip
+        self.waitForBreakReturn = waitForBreakReturn
+        self.breakNowDelaySeconds = breakNowDelaySeconds
+        self.workScheduleMode = workScheduleMode
+        self.flexibleWork = flexibleWork
         self.showFullWorkTimer = showFullWorkTimer
         self.menuBarCountdownMinutes = menuBarCountdownMinutes
         self.menuScene = menuScene
@@ -102,7 +115,8 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         case postponeReturnDelay
         case idleDetectionEnabled
         case pauseMediaDuringBreak, soundBeforeBreak, soundAfterBreak
-        case resetIntervalOnSkip
+        case resetIntervalOnSkip, waitForBreakReturn, breakNowDelaySeconds
+        case workScheduleMode, flexibleWork
         case showFullWorkTimer, menuBarCountdownMinutes, menuScene
         case breakScreen
         case pomodoro
@@ -129,6 +143,10 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         soundBeforeBreak = try c.decodeIfPresent(Bool.self, forKey: .soundBeforeBreak) ?? false
         soundAfterBreak = try c.decodeIfPresent(Bool.self, forKey: .soundAfterBreak) ?? false
         resetIntervalOnSkip = try c.decodeIfPresent(Bool.self, forKey: .resetIntervalOnSkip) ?? true
+        waitForBreakReturn = try c.decodeIfPresent(Bool.self, forKey: .waitForBreakReturn) ?? false
+        breakNowDelaySeconds = try c.decodeIfPresent(Int.self, forKey: .breakNowDelaySeconds) ?? 5
+        workScheduleMode = try c.decodeIfPresent(WorkScheduleMode.self, forKey: .workScheduleMode) ?? .fixed
+        flexibleWork = try c.decodeIfPresent(FlexibleWorkSettings.self, forKey: .flexibleWork) ?? FlexibleWorkSettings()
         showFullWorkTimer = try c.decodeIfPresent(Bool.self, forKey: .showFullWorkTimer) ?? false
         menuBarCountdownMinutes = try c.decodeIfPresent(Int.self, forKey: .menuBarCountdownMinutes) ?? 1
         // A string, not the enum: the load drops every preference on one failed field, and a scene

@@ -62,6 +62,8 @@ public struct SettingsImportSummary: Equatable, Sendable {
             PreferenceField(name: name, page: page) { $0[keyPath: path] != $1[keyPath: path] }
         }
         return [
+            field("workScheduleMode", .general, \.workScheduleMode),
+            field("flexibleWork", .general, \.flexibleWork),
             field("showFullWorkTimer", .menuBar, \.showFullWorkTimer),
             field("menuBarCountdownMinutes", .menuBar, \.menuBarCountdownMinutes),
             field("menuScene", .menuBar, \.menuScene),
@@ -69,6 +71,8 @@ public struct SettingsImportSummary: Equatable, Sendable {
             field("soundBeforeBreak", .breakScreen, \.soundBeforeBreak),
             field("soundAfterBreak", .breakScreen, \.soundAfterBreak),
             field("breakScreen", .breakScreen, \.breakScreen),
+            field("waitForBreakReturn", .breakScreen, \.waitForBreakReturn),
+            field("breakNowDelaySeconds", .breakScreen, \.breakNowDelaySeconds),
             field("gentleDailySkipLimit", .discipline, \.gentleDailySkipLimit),
             field("firmSkipDelay", .discipline, \.firmSkipDelay),
             field("firmEscapePhrase", .discipline, \.firmEscapePhrase),

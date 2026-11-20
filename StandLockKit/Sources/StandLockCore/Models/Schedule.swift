@@ -33,6 +33,13 @@ public struct Schedule: Codable, Sendable, Identifiable, Equatable {
         self.progressiveEnforcement = progressiveEnforcement
     }
 
+    public func interval(at cycleIndex: Int) -> TimeInterval {
+        let duration = intervalCycle.flatMap { cycle in
+            cycle.isEmpty ? nil : cycle[cycleIndex % cycle.count].duration
+        } ?? breakInterval
+        return BreakSafety.breakInterval(duration)
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id, name, isEnabled, days, windows
         case breakInterval, breakDuration, intervalCycle, repetitionRule

@@ -105,6 +105,35 @@ struct SettingsExportTests {
 
     // MARK: - Round trip
 
+    @Test
+    func workModeAndEarlyBreakPreferencesSurviveBackupAndOldFilesKeepTheirBehavior() throws {
+        let flexible = FlexibleWorkSettings(
+            breakInterval: 2700, breakDuration: 31, intervalCycle: [
+                IntervalStep(duration: 2700, label: "Sitting"), IntervalStep(duration: 900, label: "Standing"),
+            ],
+            repetitionRule: RepetitionRule(shortBreakCount: 2, shortBreakDuration: 31, longBreakDuration: 600),
+            disciplineLevel: .firm, dailyBreakCap: 5, progressiveEnforcement: true
+        )
+        let preferences = AppPreferences(
+            waitForBreakReturn: true, breakNowDelaySeconds: 12, workScheduleMode: .flexible, flexibleWork: flexible
+        )
+        let backup = SettingsExport(preferences: preferences, schedules: [], theme: nil, language: nil, showHelp: true)
+        let data = try backup.encoded()
+        let restored = try SettingsExport.decode(data)
+        #expect(restored.preferences == preferences)
+
+        var serialized = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var fields = try #require(serialized["preferences"] as? [String: Any])
+        for key in ["waitForBreakReturn", "breakNowDelaySeconds", "workScheduleMode", "flexibleWork"] {
+            fields.removeValue(forKey: key)
+        }
+        serialized["preferences"] = fields
+        let legacy = try SettingsExport.decode(JSONSerialization.data(withJSONObject: serialized))
+        #expect(legacy.preferences.workScheduleMode == .fixed)
+        #expect(!legacy.preferences.waitForBreakReturn)
+        #expect(legacy.preferences.breakNowDelaySeconds == 5)
+    }
+
     @Test func fullValueRoundTrips() throws {
         let export = Self.full()
         #expect(try SettingsExport.decode(export.encoded()) == export)

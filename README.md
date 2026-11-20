@@ -57,7 +57,7 @@ Or [download the DMG](https://github.com/yagizdo/StandLock/releases/latest) and 
 - Every break of the day listed before you save
 - Breaks wait for meetings, screen recordings, screen sharing and calendar events
 - If you were already away from your desk, the break counts as done
-- You can postpone a break once when a call comes up
+- You can postpone a scheduled break again when it returns
 - Start a Pomodoro session from the menu bar: 25 min focus, 5 min breaks, a 15 min long break after four rounds, all adjustable in Settings › Pomodoro. It can cover the screen during focus instead, for work away from the Mac
 
 <p align="center"><img src="assets/schedules.png" width="460" alt="Schedule form with days, hours, alternating intervals and the day's break times"></p>
@@ -104,6 +104,23 @@ StandLock asks only when you use a feature that needs a permission. If you revok
 | Calendar | Optional: reads events to defer breaks, never changes them |
 
 StandLock does not open your camera or microphone. It only checks whether another app is using them.
+
+## Local status
+
+Enable **Settings › General › Share Local Status** to let a local app read StandLock's ordinary schedule and the Mac's input idle time. The switch is off by default and applies to this Mac.
+
+Read `~/Library/Application Support/com.yagizdokumaci.standlock/LocalStatus/status.json` at startup. StandLock replaces the snapshot atomically and posts the distributed notification `com.yagizdokumaci.standlock.localStatusDidChange` when the plan, reminder time, or postpone count changes. The notification tells readers to reopen the file and carries no data.
+
+| Field | Meaning |
+|-------|---------|
+| `schemaVersion` | The snapshot format version, currently `1`. |
+| `updatedAt` | UTC ISO 8601 time the snapshot was written. Treat it as stale after 15 seconds. |
+| `planState` | `work`, `break`, `postponed`, `deferred`, `paused`, or `inactive`. A Pomodoro session makes the ordinary schedule inactive. |
+| `nextBreakAt` | UTC ISO 8601 time of the next reminder, or `null` when unknown. During a postpone, the return time can change while the state stays `postponed`. |
+| `postponeCount` | Manual postpones of the current scheduled break. The number carries across reminders of the same break and resets to 0 when it ends. Automatic deferrals leave the count at 0. |
+| `inputIdleSeconds` | Seconds since recent Mac input at the time of the snapshot, or `null` when unavailable. This value describes device activity. |
+
+The file refreshes about every five seconds while sharing is enabled. Turning off the switch or quitting removes it. Debug builds use the separate `com.yagizdokumaci.standlock.debug` identifier in the path and notification name.
 
 ## Build from source
 

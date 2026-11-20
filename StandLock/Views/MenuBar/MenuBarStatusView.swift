@@ -94,6 +94,7 @@ struct MenuBarStatusView: View {
             case .longBreak: return "Long break"
             }
         }
+        if state == .waitingForWork { return "Waiting to start work" }
         return switch look {
         case .working: "Working"
         case .breakSoon: "Break soon"
@@ -121,8 +122,11 @@ struct MenuBarStatusView: View {
             .lineLimit(1)
         } else if let schedule {
             HStack(spacing: 4) {
-                Text(schedule.name)
-                    .lineLimit(1)
+                if schedule.id == FlexibleWorkSettings.scheduleID {
+                    Text("Flexible work")
+                } else {
+                    Text(schedule.name).lineLimit(1)
+                }
                 Text(verbatim: "·")
                 Text(LocalizedStringKey(schedule.disciplineLevel.displayName))
                     .fixedSize()
@@ -154,7 +158,7 @@ struct MenuBarStatusView: View {
             trailingColumn(label: "Resumes") {
                 Text(until, style: .time)
             }
-        case .breakActive, .deferred, .noSchedules, .noActiveSchedules:
+        case .breakActive, .deferred, .noSchedules, .noActiveSchedules, .waitingForWork:
             // Holds the row's height with no width, so the panel does not jump between looks.
             trailingColumn(label: "Next break") {
                 Text(verbatim: "0:00")

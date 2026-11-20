@@ -31,9 +31,18 @@ final class AppCoordinator: ObservableObject {
     @Published var todayStats: BreakStatistics = BreakStatistics()
     @Published var deferralReason: DeferralReason?
     @Published var isPaused: Bool = false
+    @Published private(set) var canStartBreakNow = false
+    @Published private(set) var isWaitingForWork = false
     @Published var pausedUntil: Date?
     @Published var schedules: [Schedule] = []
     @Published var preferences: AppPreferences = AppPreferences()
+    @Published var sharesLocalStatus = UserDefaults.standard.bool(forKey: AppCoordinator.localStatusSharingKey) {
+        didSet {
+            guard oldValue != sharesLocalStatus else { return }
+            UserDefaults.standard.set(sharesLocalStatus, forKey: Self.localStatusSharingKey)
+            updateLocalStatusPublisher()
+        }
+    }
     @Published var hasCompletedOnboarding: Bool = false
     @Published private(set) var breakProgress: Double = 0
     @Published private(set) var menuBarTimerText: String?
@@ -46,6 +55,23 @@ final class AppCoordinator: ObservableObject {
     let settingsNavigation = SettingsNavigation()
     let permissionChecker: PermissionChecker
     private let breakSoundPlayer = BreakSoundPlayer()
+    private static let localStatusSharingKey = "sharesLocalStatus"
+    private lazy var localStatusPublisher: LocalStatusPublisher = {
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.yagizdokumaci.standlock.debug"
+        let directory = URL.applicationSupportDirectory
+            .appendingPathComponent(bundleID, isDirectory: true)
+            .appendingPathComponent("LocalStatus", isDirectory: true)
+        return LocalStatusPublisher(directory: directory, notificationName: .init(bundleID + ".localStatusDidChange")) {
+            [weak self] in
+            let now = Date()
+            let plan = self?.coordinator?.localStatus(now: now) ?? (.inactive, nil, 0)
+            return LocalStatusSnapshot(
+                updatedAt: now, planState: plan.planState, nextBreakAt: plan.nextBreakAt,
+                postponeCount: plan.postponeCount,
+                inputIdleSeconds: IdleDetector().idleDuration()
+            )
+        }
+    }()
 
     private var coordinator: BreakCoordinator?
     /// Survives the coordinator-less interval between a teardown and the next build.
@@ -104,6 +130,7 @@ final class AppCoordinator: ObservableObject {
             MainActor.assumeIsolated {
                 self?.saveEnforcementState()
                 self?.savePomodoroSession()
+                self?.localStatusPublisher.stop()
             }
         }
         NotificationCenter.default.addObserver(
@@ -136,6 +163,7 @@ final class AppCoordinator: ObservableObject {
         // Always built: a Pomodoro session runs with no schedule enabled.
         startCoordinator(restoring: carriedStateForToday())
         restoreSavedPomodoroSession()
+        updateLocalStatusPublisher()
         if launchGuard != nil {
             UserDefaults.standard.set(Date(), forKey: Self.lastUncleanExitKey)
             // A run loop block, not a Task: `runModal` inside a main-actor job holds the main
@@ -157,6 +185,14 @@ final class AppCoordinator: ObservableObject {
               let data = try? Data(contentsOf: url),
               let decoded = try? JSONDecoder().decode([Exercise].self, from: data) else { return }
         loadedExercises = decoded
+    }
+
+    private func updateLocalStatusPublisher() {
+        if sharesLocalStatus {
+            localStatusPublisher.start()
+        } else {
+            localStatusPublisher.stop()
+        }
     }
 
     // MARK: - Persistence
@@ -242,6 +278,10 @@ final class AppCoordinator: ObservableObject {
 
     /// The streak reads this to tell a missed day from one no schedule runs on.
     private func syncScheduledWeekdays() {
+        if preferences.workScheduleMode == .flexible {
+            breakHistory.scheduledWeekdays = DaySelection.everyDay.activeDays
+            return
+        }
         breakHistory.scheduledWeekdays = schedules.filter(\.isEnabled)
             .reduce(into: Set<Weekday>()) { $0.formUnion($1.days.activeDays) }
     }
@@ -249,12 +289,14 @@ final class AppCoordinator: ObservableObject {
     func savePreferences() {
         guard let data = try? JSONEncoder().encode(preferences) else { return }
         UserDefaults.standard.set(data, forKey: "preferences")
-        coordinator?.updatePreferences(preferences)
+        coordinator?.updatePreferences(enforceablePreferences)
+        syncScheduledWeekdays()
         // The look-ahead window and the calendar selection live in the detector, not in the
         // preferences the coordinator holds, so they have to be pushed separately or they only
         // land on the next coordinator rebuild.
         applyCalendarPreferences()
         updateMenuBarTimer()
+        localStatusPublisher.refreshForPlanChange()
     }
 
     /// The Settings list reads this; refreshed on launch and whenever permissions change.
@@ -297,9 +339,13 @@ final class AppCoordinator: ObservableObject {
         let strictAvailable = permissionChecker.strictModeAvailable
         guard lastStrictModeAvailable != strictAvailable else { return }
         lastStrictModeAvailable = strictAvailable
+        if preferences.workScheduleMode == .flexible {
+            coordinator?.updatePreferences(enforceablePreferences)
+            coordinator?.replaceFixedSchedules(enforceableSchedules())
+        }
         // A Strict session is gated too, even after its Strict schedule was switched off.
         if coordinator != nil,
-           schedules.contains(where: scheduleUsesStrict)
+           (preferences.workScheduleMode == .fixed && schedules.contains(where: scheduleUsesStrict))
             || (coordinator?.pomodoroSession != nil && pomodoroRequestedLevel == .strict) {
             restartCoordinator()
         }
@@ -320,6 +366,21 @@ final class AppCoordinator: ObservableObject {
         }
     }
 
+    private var enforceablePreferences: AppPreferences {
+        var values = preferences
+        values.flexibleWork.disciplineLevel = enforceable(values.flexibleWork.disciplineLevel)
+        return values
+    }
+
+    var configuredScheduleSettings: [Schedule] {
+        schedules + [preferences.flexibleWork.schedule]
+    }
+
+    var currentScheduleSettings: Schedule? {
+        preferences.workScheduleMode == .flexible
+            ? preferences.flexibleWork.schedule : schedules.first(where: \.isEnabled)
+    }
+
     /// Strict needs its permissions now; without them it runs as Firm.
     private func enforceable(_ level: DisciplineLevel) -> DisciplineLevel {
         level == .strict && !permissionChecker.strictModeAvailable ? .firm : level
@@ -336,7 +397,8 @@ final class AppCoordinator: ObservableObject {
     }
 
     private func updateDailyHistory(_ stats: BreakStatistics) {
-        let enabledSchedules = schedules.filter(\.isEnabled)
+        let enabledSchedules = preferences.workScheduleMode == .flexible
+            ? [preferences.flexibleWork.schedule] : schedules.filter(\.isEnabled)
         let avgDuration = enabledSchedules.isEmpty
             ? 300.0
             : enabledSchedules.map(\.breakDuration).reduce(0, +) / Double(enabledSchedules.count)
@@ -383,7 +445,7 @@ final class AppCoordinator: ObservableObject {
             }
         }
         breakCoordinator.start(with: enforceableSchedules(),
-                               preferences: preferences,
+                               preferences: enforceablePreferences,
                                statistics: todayStats,
                                restoring: state,
                                pomodoro: pomodoro,
@@ -528,6 +590,7 @@ final class AppCoordinator: ObservableObject {
             coordinator?.pause(for: pauseRemaining)
         }
         clearNextBreakIfIdle()
+        localStatusPublisher.refreshForPlanChange()
     }
 
     /// With no enabled schedule and no session nothing is armed; the stale countdown would
@@ -563,6 +626,13 @@ final class AppCoordinator: ObservableObject {
                 progressTimer?.cancel()
                 startProgressTimer()
             }
+
+        case .scheduleIdle:
+            nextBreakTime = nil
+            breakScheduledAt = nil
+            deferralReason = nil
+            breakProgress = 0
+            updateMenuBarTimer()
 
         case .breakStarted(let e):
             deferralReason = nil
@@ -612,6 +682,15 @@ final class AppCoordinator: ObservableObject {
             breakHistory = breakHistory.recordingAbandoned(session)
             saveHistory()
         }
+        refreshQuickActions()
+        localStatusPublisher.refreshForPlanChange()
+    }
+
+    private func refreshQuickActions() {
+        let available = coordinator?.canStartBreakNow == true
+        if canStartBreakNow != available { canStartBreakNow = available }
+        let waiting = coordinator?.isWaitingForWork == true
+        if isWaitingForWork != waiting { isWaitingForWork = waiting }
     }
 
     // MARK: - Schedule Management
@@ -622,7 +701,7 @@ final class AppCoordinator: ObservableObject {
         schedules.append(schedule)
         schedules = schedules.turningOffOverlaps(keeping: schedule.id)
         saveSchedules()
-        restartCoordinator()
+        applyFixedScheduleChanges()
     }
 
     func updateSchedule(_ schedule: Schedule) {
@@ -630,7 +709,7 @@ final class AppCoordinator: ObservableObject {
             schedules[index] = schedule
             schedules = schedules.turningOffOverlaps(keeping: schedule.id)
             saveSchedules()
-            restartCoordinator()
+            applyFixedScheduleChanges()
         }
     }
 
@@ -638,6 +717,8 @@ final class AppCoordinator: ObservableObject {
     /// touches the running coordinator and is lost on the next rebuild.
     func lowerStrictToFirm() {
         schedules = schedules.strictLoweredToFirm()
+        preferences.flexibleWork.disciplineLevel = preferences.flexibleWork.disciplineLevel.loweredFromStrict
+        savePreferences()
         // A running session keeps the level it started with across the rebuild.
         pomodoroRequestedLevel = pomodoroRequestedLevel?.loweredFromStrict
         saveSchedules()
@@ -647,21 +728,41 @@ final class AppCoordinator: ObservableObject {
     func deleteSchedule(_ schedule: Schedule) {
         schedules.removeAll { $0.id == schedule.id }
         saveSchedules()
-        restartCoordinator()
+        applyFixedScheduleChanges()
     }
 
-    /// Replaces preferences and schedules from a settings file. Preferences go first so the
-    /// rebuilt coordinator starts with them; the restart carries today's counters.
+    private func applyFixedScheduleChanges() {
+        if preferences.workScheduleMode == .flexible {
+            coordinator?.replaceFixedSchedules(enforceableSchedules())
+        } else {
+            restartCoordinator()
+        }
+    }
+
+    /// Replaces both profiles without dismissing an already-started break during a mode change.
     func applyImport(preferences: AppPreferences, schedules: [Schedule]) {
+        let preserveRunningPlan = self.preferences.workScheduleMode != preferences.workScheduleMode
+            || preferences.workScheduleMode == .flexible
+        self.schedules = schedules.turningOffOverlaps()
+        if preserveRunningPlan { coordinator?.replaceFixedSchedules(enforceableSchedules()) }
         self.preferences = preferences
+        saveSchedules()
         savePreferences()
         syncPreferencesWithPermissions()
-        self.schedules = schedules.turningOffOverlaps()
-        saveSchedules()
-        restartCoordinator()
+        if !preserveRunningPlan { restartCoordinator() }
     }
 
     // MARK: - Quick Actions
+
+    func startWork() {
+        coordinator?.startWork()
+        refreshQuickActions()
+    }
+
+    func startBreakNow() {
+        coordinator?.startBreakNow()
+        refreshQuickActions()
+    }
 
     func skipNextBreak() {
         coordinator?.skipNextBreak()
@@ -695,11 +796,13 @@ final class AppCoordinator: ObservableObject {
         center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.coordinator?.handleSystemSleep()
+                self?.localStatusPublisher.refreshForPlanChange()
             }
         }
         center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.coordinator?.handleSystemWake()
+                self?.localStatusPublisher.refreshForPlanChange()
             }
         }
 
@@ -707,11 +810,13 @@ final class AppCoordinator: ObservableObject {
         distributed.addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.coordinator?.handleScreenLock()
+                self?.localStatusPublisher.refreshForPlanChange()
             }
         }
         distributed.addObserver(forName: .init("com.apple.screenIsUnlocked"), object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.coordinator?.handleScreenUnlock()
+                self?.localStatusPublisher.refreshForPlanChange()
             }
         }
     }
@@ -749,6 +854,7 @@ final class AppCoordinator: ObservableObject {
     }
 
     private func updateMenuBarTimer() {
+        refreshQuickActions()
         let remaining = nextBreakTime?.timeIntervalSinceNow ?? 0
         menuBarTimerText = formatMenuBarTimer(
             secondsRemaining: remaining,

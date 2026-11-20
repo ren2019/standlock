@@ -14,6 +14,19 @@ struct AboutView: View {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
 
+    private var previewCommit: String? {
+        guard let commit = Bundle.main.object(forInfoDictionaryKey: "StandLockPreviewCommit") as? String,
+              !commit.isEmpty else { return nil }
+        return String(commit.prefix(7))
+    }
+
+    private var versionTitle: LocalizedStringKey {
+        if previewCommit != nil {
+            return "Version \(version) · Fork Preview"
+        }
+        return "Version \(version)"
+    }
+
     private static let appIcon: NSImage = {
         let icon = NSApp.applicationIconImage ?? NSImage()
         icon.size = NSSize(width: 256, height: 256)
@@ -29,7 +42,7 @@ struct AboutView: View {
             SettingsSection("Updates") {
                 UpdaterSettingsView(updater: updater)
                 SettingsRowDivider()
-                SettingsRow("Version \(version)", symbol: "number") {
+                SettingsRow(versionTitle, symbol: "number") {
                     CheckForUpdatesView(updater: updater, observer: updateObserver)
                         .controlSize(.small)
                 }
@@ -65,9 +78,15 @@ struct AboutView: View {
             Text("StandLock")
                 .font(SettingsTokens.pageTitleFont)
 
-            Text("Version \(version) (Build \(build))")
-                .font(SettingsTokens.descriptionFont)
-                .foregroundStyle(.secondary)
+            Group {
+                if let previewCommit {
+                    Text("Version \(version) (Build \(build)) · Fork Preview \(previewCommit)")
+                } else {
+                    Text("Version \(version) (Build \(build))")
+                }
+            }
+            .font(SettingsTokens.descriptionFont)
+            .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(SettingsTokens.identityInset)

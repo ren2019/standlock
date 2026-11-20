@@ -25,7 +25,9 @@ struct QuickActionsView: View {
                 }
                 .buttonStyle(MenuBarPillStyle())
                 // Kit ignores both while a session runs: Stop ends it.
-                .disabled(!coordinator.schedules.contains(where: \.isEnabled) || coordinator.isBreakActive || inSession)
+                .disabled(coordinator.currentScheduleSettings == nil || coordinator.isBreakActive || inSession
+                          || (coordinator.preferences.workScheduleMode == .flexible
+                              && coordinator.nextBreakTime == nil && coordinator.deferralReason == nil))
 
                 Button {
                     showPauseMenu()
@@ -33,7 +35,7 @@ struct QuickActionsView: View {
                     MenuBarPillLabel("Pause", symbol: "pause.circle")
                 }
                 .buttonStyle(MenuBarPillStyle())
-                .disabled(coordinator.schedules.isEmpty || inSession)
+                .disabled((coordinator.schedules.isEmpty && coordinator.preferences.workScheduleMode == .fixed) || inSession)
             }
 
             iconButton("About StandLock", symbol: "info.circle") {

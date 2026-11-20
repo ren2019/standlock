@@ -40,6 +40,7 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
     var lastEscalationTier: Int?
     var lastNextIntervalLabel: String?
     var lastCanPostpone: Bool?
+    var lastWaitsForReturn: Bool?
     var lastPomodoroChip: PomodoroChip?
     var lastShownAt: Date?
     var showCount = 0
@@ -49,7 +50,7 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
                      exercise: Exercise?, preferences: AppPreferences,
                      statistics: BreakStatistics, escalationTier: Int,
                      nextIntervalLabel: String?, canPostpone: Bool,
-                     pomodoroChip: PomodoroChip?) {
+                     pomodoroChip: PomodoroChip?, waitsForReturn: Bool) {
         showOverlayCalled = true
         showCount += 1
         lastShownAt = Date()
@@ -60,6 +61,7 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
         lastEscalationTier = escalationTier
         lastNextIntervalLabel = nextIntervalLabel
         lastCanPostpone = canPostpone
+        lastWaitsForReturn = waitsForReturn
         isShowing = true
     }
 
@@ -109,6 +111,31 @@ func waitUntil(_ condition: () -> Bool) async -> Bool {
 
 @Suite("BreakCoordinator Tests")
 struct BreakCoordinatorTests {
+
+    @Test(arguments: [false, true]) @MainActor
+    func ordinaryBreakWaitsForReturnOnlyWhenRequested(waitForReturn: Bool) async {
+        let scheduler = MockScheduler()
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(0.01)
+        let locker = MockLocker()
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: locker)
+        defer { coordinator.stop() }
+        let schedule = makeSchedule(level: .strict, repetitionRule: RepetitionRule(
+            shortBreakCount: 3, shortBreakDuration: 10, longBreakDuration: 30
+        ))
+
+        coordinator.start(with: [schedule], preferences: AppPreferences(
+            idleDetectionEnabled: false, waitForBreakReturn: waitForReturn
+        ))
+
+        #expect(await waitUntil { locker.isShowing })
+        #expect(locker.lastWaitsForReturn == waitForReturn)
+        #expect(coordinator.captureEnforcementState().repetitionIndices[schedule.id] == 0)
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(300)
+        coordinator.completeActiveBreak()
+        coordinator.completeActiveBreak()
+        #expect(coordinator.captureEnforcementState().repetitionIndices[schedule.id] == 1)
+        #expect(scheduler.receivedAfterDates.count == 2)
+    }
 
     @Test(arguments: [false, true]) @MainActor
     func unsafeStoredBreakIsBoundedAtPresentation(repeating: Bool) async {
@@ -2072,7 +2099,7 @@ struct BreakCoordinatorPostponeTests {
         #expect(!locker.showOverlayCalled)
 
         #expect(await waitUntil { locker.showOverlayCalled })
-        #expect(locker.lastCanPostpone == false)
+        #expect(locker.lastCanPostpone == true)
         #expect(locker.lastDuration == schedule.breakDuration)
 
         coordinator.stop()
@@ -2198,7 +2225,7 @@ struct BreakCoordinatorPostponeTests {
     }
 
     @Test
-    func postponeOnlyOncePerBreak() async {
+    func repeatedPostponesCountAsDeferrals() async throws {
         let (coordinator, _, _, locker, _) = await startWithActiveBreak()
         #expect(locker.isShowing)
 
@@ -2211,13 +2238,14 @@ struct BreakCoordinatorPostponeTests {
 
         coordinator.postponeActiveBreak()
         locker.showOverlayCalled = false
-        #expect(await waitUntil { locker.showOverlayCalled })
-        let deferredBefore = lastStats?.breaksDeferred
+        try #require(await waitUntil { locker.showOverlayCalled })
 
+        locker.showOverlayCalled = false
         coordinator.postponeActiveBreak()
-        try? await Task.sleep(for: .milliseconds(50))
-        #expect(locker.isShowing)
-        #expect(lastStats?.breaksDeferred == deferredBefore)
+        #expect(!locker.isShowing)
+        try #require(await waitUntil { locker.showOverlayCalled })
+        #expect(lastStats?.breaksDeferred == 2)
+        #expect(lastStats?.breaksSkipped == 0)
 
         coordinator.completeActiveBreak()
         try? await Task.sleep(for: .milliseconds(50))
@@ -2250,7 +2278,8 @@ struct BreakCoordinatorPostponeTests {
         locker.showOverlayCalled = false
 
         #expect(await waitUntil { locker.showOverlayCalled })
-        #expect(locker.lastCanPostpone == false)
+        #expect(locker.lastCanPostpone == true)
+        #expect(coordinator.localStatus().postponeCount == 1)
         #expect(lastStats?.breaksSkipped == 0)
 
         coordinator.stop()
@@ -2267,7 +2296,8 @@ struct BreakCoordinatorPostponeTests {
         locker.showOverlayCalled = false
 
         #expect(await waitUntil { locker.showOverlayCalled })
-        #expect(locker.lastCanPostpone == false)
+        #expect(locker.lastCanPostpone == true)
+        #expect(coordinator.localStatus().postponeCount == 1)
 
         coordinator.stop()
     }
@@ -2280,6 +2310,7 @@ struct BreakCoordinatorPostponeTests {
         detector.contextToReturn = DetectionContext(microphoneActive: true)
         coordinator.postponeActiveBreak()
         coordinator.skipNextBreak()
+        #expect(coordinator.localStatus().postponeCount == 0)
         coordinator.handleScreenLock()
         coordinator.handleScreenUnlock()
         locker.showOverlayCalled = false
@@ -2311,16 +2342,21 @@ struct BreakCoordinatorPostponeTests {
     }
 
     @Test
-    func postponedBreakSurvivesCoordinatorRebuild() async {
+    func repeatedPostponesSurviveCoordinatorRebuild() async throws {
         let (coordinator, _, detector, locker, schedule) = await startWithActiveBreak()
         #expect(locker.isShowing)
+
+        coordinator.postponeActiveBreak()
+        locker.showOverlayCalled = false
+        try #require(await waitUntil { locker.showOverlayCalled })
 
         detector.contextToReturn = DetectionContext(microphoneActive: true)
         coordinator.postponeActiveBreak()
         let (rebuilt, newLocker) = rebuild(from: coordinator, with: [schedule])
 
         #expect(await waitUntil { newLocker.showOverlayCalled })
-        #expect(newLocker.lastCanPostpone == false)
+        #expect(newLocker.lastCanPostpone == true)
+        #expect(rebuilt.localStatus().postponeCount == 2)
 
         rebuilt.stop()
     }
@@ -2338,7 +2374,8 @@ struct BreakCoordinatorPostponeTests {
 
         let (rebuilt, newLocker) = rebuild(from: withoutSchedule, with: [schedule])
         #expect(await waitUntil { newLocker.showOverlayCalled })
-        #expect(newLocker.lastCanPostpone == false)
+        #expect(newLocker.lastCanPostpone == true)
+        #expect(rebuilt.localStatus().postponeCount == 1)
 
         rebuilt.stop()
     }
@@ -2364,11 +2401,12 @@ struct BreakCoordinatorPostponeTests {
 
     @Test
     func postponedBreakIsNotSavedAcrossRelaunch() throws {
-        let state = EnforcementState(postponedScheduleID: UUID())
+        let state = EnforcementState(postponedScheduleID: UUID(), postponedScheduleCount: 2)
         let decoded = try JSONDecoder().decode(
             EnforcementState.self, from: JSONEncoder().encode(state)
         )
         #expect(decoded.postponedScheduleID == nil)
+        #expect(decoded.postponedScheduleCount == 0)
     }
 }
 

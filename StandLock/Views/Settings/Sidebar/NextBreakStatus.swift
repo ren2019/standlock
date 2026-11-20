@@ -40,6 +40,8 @@ struct NextBreakStatus: View {
                         .foregroundStyle(.primary)
                 }
             }
+        case .waitingForWork:
+            Text("Waiting to start work")
         case .noSchedules:
             Text("No schedules configured")
         case .noActiveSchedules:

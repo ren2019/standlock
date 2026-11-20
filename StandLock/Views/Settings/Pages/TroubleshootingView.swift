@@ -30,7 +30,7 @@ struct TroubleshootingView: View {
 
             SettingsSection("Right now") {
                 TroubleshootingStatusRow(coordinator: coordinator)
-                StrictInactiveRow(schedules: coordinator.schedules, navigation: coordinator.settingsNavigation)
+                StrictInactiveRow(schedules: coordinator.configuredScheduleSettings, navigation: coordinator.settingsNavigation)
             }
 
             SettingsSection("If a break won't close", note: "You can't open Settings while a break is on screen.") {
@@ -53,7 +53,7 @@ struct TroubleshootingView: View {
                 TroubleshootingRow("If nothing else works", symbol: "power", text: Text(
                     "Hold the power button until the Mac turns off. When StandLock opens again, the first break comes after 15 minutes, and you can skip it."
                 ))
-                if coordinator.schedules.containsStrict {
+                if coordinator.configuredScheduleSettings.containsStrict {
                     SettingsRowDivider()
                     TroubleshootingRow("Turn Off Strict", symbol: "arrow.down.circle",
                                        text: Text("Every schedule that uses Strict switches to Firm.")) {

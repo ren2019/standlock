@@ -26,7 +26,9 @@ final class OverlayWindowController: LockPresenting {
     private var currentNextIntervalLabel: String?
     private var currentCanPostpone = false
     private var currentPomodoroChip: PomodoroChip?
-    private var breakStartDate: Date?
+    private var endDate: Date = .distantPast
+    private var waitsForReturn = false
+    private var presentationID: UUID?
     private var lastScreenChangeHandled: Date = .distantPast
     private var policyBeforeOverlay: NSApplication.ActivationPolicy = .accessory
 
@@ -45,16 +47,15 @@ final class OverlayWindowController: LockPresenting {
         exercise: Exercise?, preferences: AppPreferences,
         statistics: BreakStatistics, escalationTier: Int = 0,
         nextIntervalLabel: String? = nil, canPostpone: Bool = false,
-        pomodoroChip: PomodoroChip? = nil
+        pomodoroChip: PomodoroChip? = nil, waitsForReturn: Bool = false
     ) {
         // An app-modal alert (a permission restart, Sparkle) sits below the overlay and takes
         // every click from it, Skip included, until the break ends. Closing it returns `.abort`.
         if NSApp.modalWindow != nil { NSApp.abortModal() }
-        let isRecreation = isShowing
         dismissOverlay()
-        if !isRecreation {
-            breakStartDate = Date()
-        }
+        presentationID = UUID()
+        endDate = Date().addingTimeInterval(duration)
+        self.waitsForReturn = waitsForReturn
 
         currentLevel = level
         currentDuration = duration
@@ -66,29 +67,7 @@ final class OverlayWindowController: LockPresenting {
         currentCanPostpone = canPostpone
         currentPomodoroChip = pomodoroChip
 
-        // Read once per overlay. That is what makes each break pick up the current
-        // appearance without this controller subscribing to the store.
-        let look = BreakScreenLook.resolve(
-            theme: themeStore.current, level: level, breakScreen: preferences.breakScreen
-        )
-        for screen in NSScreen.screens {
-            let window = BreakOverlayWindow(screen: screen, palette: look.palette, appearance: look.appearance)
-            let contentView = ManuscriptBreakView(
-                level: level, look: look, totalDuration: duration,
-                exercise: exercise, preferences: preferences,
-                statistics: statistics, escalationTier: escalationTier,
-                nextIntervalLabel: nextIntervalLabel,
-                pomodoroChip: pomodoroChip,
-                canPostpone: canPostpone,
-                onSkip: { [weak self] in self?.handleSkip() },
-                onPostpone: { [weak self] in self?.handlePostpone() },
-                onEscape: { [weak self] in self?.handleEscape() },
-                onComplete: { [weak self] in self?.handleComplete() }
-            )
-            window.setContent(LocalizedRoot(store: languageStore) { contentView })
-            window.orderFrontRegardless()
-            overlayWindows.append(window)
-        }
+        createWindows()
         isShowing = true
 
         // Activate the app, not just the window. A menu bar app stays .accessory and
@@ -103,6 +82,9 @@ final class OverlayWindowController: LockPresenting {
 
         if level == .strict {
             startEventTap(preferences: preferences)
+            if waitsForReturn && endDate <= Date() {
+                eventTapController?.stopBlockingInput()
+            }
         }
 
         forceFocus()
@@ -136,19 +118,65 @@ final class OverlayWindowController: LockPresenting {
         eventTapController?.stop()
         eventTapController = nil
 
-        let windows = overlayWindows
-        overlayWindows.removeAll()
+        presentationID = nil
         isShowing = false
-
-        for window in windows {
-            window.contentView = nil
-            window.orderOut(nil)
-        }
+        removeWindows()
 
         // Put back what `showOverlay` saved instead of looking for other visible windows:
         // `NSApp.windows` always holds the menu bar item's visible NSStatusBarWindow, so
         // that check kept the app .regular, with a Dock icon and focus, after every break.
         NSApp.setActivationPolicy(policyBeforeOverlay)
+    }
+
+    private func createWindows() {
+        guard let id = presentationID, let level = currentLevel,
+              let preferences = currentPreferences, let statistics = currentStatistics else { return }
+        let look = BreakScreenLook.resolve(
+            theme: themeStore.current, level: level, breakScreen: preferences.breakScreen
+        )
+        for screen in NSScreen.screens {
+            let window = BreakOverlayWindow(screen: screen, palette: look.palette, appearance: look.appearance)
+            let contentView = ManuscriptBreakView(
+                level: level, look: look, totalDuration: currentDuration, endDate: endDate,
+                exercise: currentExercise, preferences: preferences,
+                statistics: statistics, escalationTier: currentEscalationTier,
+                nextIntervalLabel: currentNextIntervalLabel,
+                pomodoroChip: currentPomodoroChip,
+                canPostpone: currentCanPostpone, waitsForReturn: waitsForReturn,
+                onCountdownEnded: { [weak self] in
+                    guard self?.presentationID == id else { return }
+                    self?.eventTapController?.stopBlockingInput()
+                },
+                onSkip: { [weak self] in
+                    guard self?.presentationID == id else { return }
+                    self?.handleSkip()
+                },
+                onPostpone: { [weak self] in
+                    guard self?.presentationID == id else { return }
+                    self?.handlePostpone()
+                },
+                onEscape: { [weak self] in
+                    guard self?.presentationID == id else { return }
+                    self?.handleEscape()
+                },
+                onComplete: { [weak self] in
+                    guard self?.presentationID == id else { return }
+                    self?.handleComplete()
+                }
+            )
+            window.setContent(LocalizedRoot(store: languageStore) { contentView })
+            window.orderFrontRegardless()
+            overlayWindows.append(window)
+        }
+    }
+
+    private func removeWindows() {
+        let windows = overlayWindows
+        overlayWindows.removeAll()
+        for window in windows {
+            window.contentView = nil
+            window.orderOut(nil)
+        }
     }
 
     private func startEventTap(preferences: AppPreferences) {
@@ -161,35 +189,35 @@ final class OverlayWindowController: LockPresenting {
         } else {
             effectiveHold = preferences.strictEscapeHoldDuration
         }
+        let id = presentationID
         eventTapController = EventTapController(
             escapeHoldDuration: effectiveHold,
             onEscapeTriggered: { [weak self] in
-                Task { @MainActor in self?.handleEscape() }
+                Task { @MainActor in
+                    guard self?.presentationID == id else { return }
+                    self?.handleEscape()
+                }
             }
         )
         eventTapController?.startBlocking()
     }
 
     private func handleSkip() {
-        breakStartDate = nil
         dismissOverlay()
         onSkip?()
     }
 
     private func handlePostpone() {
-        breakStartDate = nil
         dismissOverlay()
         onPostpone?()
     }
 
     private func handleComplete() {
-        breakStartDate = nil
         dismissOverlay()
         onComplete?()
     }
 
     private func handleEscape() {
-        breakStartDate = nil
         dismissOverlay()
         onEscape?()
     }
@@ -198,7 +226,9 @@ final class OverlayWindowController: LockPresenting {
         for window in overlayWindows {
             window.orderFrontRegardless()
         }
-        overlayWindows.first?.makeKey()
+        if !overlayWindows.contains(where: \.isKeyWindow) {
+            overlayWindows.first?.makeKey()
+        }
     }
 
     private func startFocusEnforcer() {
@@ -226,30 +256,13 @@ final class OverlayWindowController: LockPresenting {
         guard now.timeIntervalSince(lastScreenChangeHandled) > 2.0 else { return }
         lastScreenChangeHandled = now
 
-        guard isShowing,
-              let level = currentLevel,
-              let prefs = currentPreferences,
-              let stats = currentStatistics else { return }
-
-        let elapsed = breakStartDate.map { now.timeIntervalSince($0) } ?? 0
-        guard elapsed < currentDuration else {
+        guard isShowing else { return }
+        if endDate <= now && !waitsForReturn {
             handleComplete()
             return
         }
-
-        let remaining = currentDuration - elapsed
-        let tier = currentEscalationTier
-        let exercise = currentExercise
-        let nextLabel = currentNextIntervalLabel
-        let canPostpone = currentCanPostpone
-        let chip = currentPomodoroChip
-        dismissOverlay()
-        showOverlay(
-            level: level, duration: remaining,
-            exercise: exercise, preferences: prefs,
-            statistics: stats, escalationTier: tier,
-            nextIntervalLabel: nextLabel, canPostpone: canPostpone,
-            pomodoroChip: chip
-        )
+        removeWindows()
+        createWindows()
+        forceFocus()
     }
 }

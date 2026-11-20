@@ -5,6 +5,8 @@ struct ManuscriptBreakView: View {
     let level: DisciplineLevel
     let look: BreakScreenLook
     let totalDuration: TimeInterval
+    let endDate: Date
+    let waitsForReturn: Bool
     let exercise: Exercise?
     let preferences: AppPreferences
     let statistics: BreakStatistics
@@ -17,6 +19,7 @@ struct ManuscriptBreakView: View {
     let onPostpone: () -> Void
     let onEscape: () -> Void
     let onComplete: () -> Void
+    let onCountdownEnded: () -> Void
 
     @State private var remainingSeconds: TimeInterval
     @State private var isVisible = false
@@ -24,12 +27,13 @@ struct ManuscriptBreakView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(level: DisciplineLevel, look: BreakScreenLook,
-         totalDuration: TimeInterval, exercise: Exercise?,
+         totalDuration: TimeInterval, endDate: Date, exercise: Exercise?,
          preferences: AppPreferences, statistics: BreakStatistics,
          escalationTier: Int = 0,
          nextIntervalLabel: String? = nil,
          pomodoroChip: PomodoroChip? = nil,
-         canPostpone: Bool,
+         canPostpone: Bool, waitsForReturn: Bool,
+         onCountdownEnded: @escaping () -> Void,
          onSkip: @escaping () -> Void,
          onPostpone: @escaping () -> Void,
          onEscape: @escaping () -> Void,
@@ -37,6 +41,9 @@ struct ManuscriptBreakView: View {
         self.level = level
         self.look = look
         self.totalDuration = totalDuration
+        self.endDate = endDate
+        self.waitsForReturn = waitsForReturn
+        self.onCountdownEnded = onCountdownEnded
         self.exercise = exercise
         self.preferences = preferences
         self.statistics = statistics
@@ -50,7 +57,7 @@ struct ManuscriptBreakView: View {
         self.onPostpone = onPostpone
         self.onEscape = onEscape
         self.onComplete = onComplete
-        self._remainingSeconds = State(initialValue: totalDuration)
+        self._remainingSeconds = State(initialValue: max(0, ceil(endDate.timeIntervalSinceNow)))
     }
 
     private var palette: BreakPalette { look.palette }
@@ -76,6 +83,7 @@ struct ManuscriptBreakView: View {
                     Spacer()
 
                     VStack(spacing: compact ? 16 : 24) {
+                        let isAwaitingReturn = waitsForReturn && remainingSeconds <= 0
                         HStack(spacing: 10) {
                             LevelPill(level: level, palette: palette)
                             if let pomodoroChip {
@@ -104,16 +112,25 @@ struct ManuscriptBreakView: View {
                         if let exercise {
                             ExerciseBlock(exercise: exercise, palette: palette)
                         }
-                        ActionArea(
-                            tier: enforcementTier, palette: palette,
-                            preferences: preferences, statistics: statistics,
-                            disciplineLevel: level,
-                            escalationTier: escalationTierIndex,
-                            isFocusCover: isFocusCover,
-                            onDismiss: onSkip,
-                            onEscape: onEscape
-                        )
-                        if canPostpone {
+                        if isAwaitingReturn {
+                            Button("I'm back", action: onComplete)
+                                .buttonStyle(.borderedProminent)
+                                .tint(palette.accent)
+                                .keyboardShortcut(.defaultAction)
+                        }
+                        if !isAwaitingReturn || level == .strict
+                            || level.dailySkipLimitReached(preferences: preferences, skipsToday: statistics.breaksSkipped, isFocusCover: isFocusCover) {
+                            ActionArea(
+                                tier: enforcementTier, palette: palette,
+                                preferences: preferences, statistics: statistics,
+                                disciplineLevel: level,
+                                escalationTier: escalationTierIndex,
+                                isFocusCover: isFocusCover,
+                                onDismiss: onSkip,
+                                onEscape: onEscape
+                            )
+                        }
+                        if canPostpone && !isAwaitingReturn {
                             PostponeButton(palette: palette, isFocusCover: isFocusCover, onPostpone: onPostpone)
                         }
                     }
@@ -215,11 +232,15 @@ struct ManuscriptBreakView: View {
     }
 
     private func startCountdown() async {
-        let end = Date().addingTimeInterval(remainingSeconds)
         while remainingSeconds > 0 {
-            try? await Task.sleep(for: .seconds(1))
+            try? await Task.sleep(for: .seconds(max(0, min(1, endDate.timeIntervalSinceNow))))
             guard !Task.isCancelled else { return }
-            remainingSeconds = breakSecondsRemaining(until: end)
+            remainingSeconds = max(0, ceil(endDate.timeIntervalSinceNow))
+        }
+        guard !Task.isCancelled else { return }
+        if waitsForReturn {
+            onCountdownEnded()
+            return
         }
         if !reduceMotion {
             withAnimation(.easeOut(duration: 0.3)) {
@@ -229,7 +250,7 @@ struct ManuscriptBreakView: View {
         } else {
             isVisible = false
         }
-        onComplete()
+        if !Task.isCancelled { onComplete() }
     }
 }
 

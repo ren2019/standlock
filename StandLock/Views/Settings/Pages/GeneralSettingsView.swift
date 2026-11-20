@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct GeneralSettingsView: View {
+    @EnvironmentObject private var coordinator: AppCoordinator
     @EnvironmentObject private var languageStore: LanguageStore
     @EnvironmentObject private var themeStore: ThemeStore
     @State private var launchAtStartup = LaunchAtLogin.isEnabled
@@ -9,6 +10,7 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         SettingsPageLayout("General") {
+            WorkModeSettingsView()
             SettingsSection("Startup") {
                 SettingsToggleRow(
                     "Launch at Startup",
@@ -62,6 +64,15 @@ struct GeneralSettingsView: View {
                     .labelsHidden()
                     .fixedSize()
                 }
+            }
+
+            SettingsSection("Local integrations") {
+                SettingsToggleRow(
+                    "Share Local Status",
+                    symbol: "dot.radiowaves.left.and.right",
+                    description: "Let local apps read your break schedule and input idle time.",
+                    isOn: $coordinator.sharesLocalStatus
+                )
             }
 
             SettingsFileSection()

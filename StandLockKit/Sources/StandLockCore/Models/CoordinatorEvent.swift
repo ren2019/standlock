@@ -2,6 +2,7 @@ import Foundation
 
 public enum CoordinatorEvent: Sendable {
     case nextBreakScheduled(Date)
+    case scheduleIdle
     case breakStarted(BreakEvent)
     case breakCompleted(BreakEvent)
     case breakSkipped(BreakEvent)

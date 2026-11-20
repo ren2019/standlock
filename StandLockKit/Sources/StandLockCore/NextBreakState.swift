@@ -7,6 +7,7 @@ public enum NextBreakState: Equatable, Sendable {
     case paused(until: Date)
     case deferred(DeferralReason)
     case countingDown(to: Date)
+    case waitingForWork
     case noSchedules
     case noActiveSchedules
 
@@ -16,7 +17,8 @@ public enum NextBreakState: Equatable, Sendable {
         pausedUntil: Date?,
         deferralReason: DeferralReason?,
         nextBreakTime: Date?,
-        hasSchedules: Bool
+        hasSchedules: Bool,
+        isWaitingForWork: Bool = false
     ) {
         if isBreakActive {
             self = .breakActive
@@ -26,6 +28,8 @@ public enum NextBreakState: Equatable, Sendable {
             self = .deferred(deferralReason)
         } else if let nextBreakTime {
             self = .countingDown(to: nextBreakTime)
+        } else if isWaitingForWork {
+            self = .waitingForWork
         } else if hasSchedules {
             self = .noActiveSchedules
         } else {
