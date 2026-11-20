@@ -14,6 +14,7 @@ struct LocalStatusTests {
         let scheduler = MockScheduler()
         scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(0.05)
         let detector = MockDetector()
+        detector.contextToReturn = DetectionContext(cameraActive: true)
         let coordinator = BreakCoordinator(
             scheduler: scheduler, detector: detector, locker: MockLocker(), deferralPollingInterval: 0.05
         )
@@ -21,7 +22,8 @@ struct LocalStatusTests {
             let now = Date()
             let plan = coordinator.localStatus(now: now)
             return LocalStatusSnapshot(
-                updatedAt: now, planState: plan.planState, nextBreakAt: plan.nextBreakAt, inputIdleSeconds: nil
+                updatedAt: now, planState: plan.planState, nextBreakAt: plan.nextBreakAt,
+                postponeCount: plan.postponeCount, inputIdleSeconds: nil
             )
         }
         let listener = Task {
@@ -36,10 +38,14 @@ struct LocalStatusTests {
         func status() -> [String: Any] { (try? readStatus(file)) ?? [:] }
 
         coordinator.start(with: [makeSchedule()], preferences: AppPreferences(
-            postponeReturnDelay: 30, idleDetectionEnabled: false
+            cameraDetection: .deferBreak, postponeReturnDelay: 30, idleDetectionEnabled: false
         ))
         publisher.start()
+        #expect(await waitUntil { status()["planState"] as? String == "deferred" })
+        #expect(try readStatus(file)["postponeCount"] as? Int == 0)
+        detector.contextToReturn = .clear
         #expect(await waitUntil { status()["planState"] as? String == "break" })
+        #expect(try readStatus(file)["postponeCount"] as? Int == 0)
 
         let nextScheduledBreak = Date().addingTimeInterval(120)
         scheduler.nextBreakTimeToReturn = nextScheduledBreak
@@ -47,6 +53,7 @@ struct LocalStatusTests {
         coordinator.postponeActiveBreak()
         #expect(await waitUntil { status()["planState"] as? String == "postponed" })
         #expect(try readStatus(file)["nextBreakAt"] is NSNull)
+        #expect(try readStatus(file)["postponeCount"] as? Int == 1)
 
         detector.contextToReturn = .clear
         #expect(await waitUntil { status()["nextBreakAt"] is String })
@@ -78,9 +85,19 @@ struct LocalStatusTests {
         #expect(try readStatus(file)["nextBreakAt"] is NSNull)
         #expect(await waitUntil { status()["planState"] as? String == "break" })
         #expect(try readStatus(file)["nextBreakAt"] is NSNull)
+        #expect(try readStatus(file)["postponeCount"] as? Int == 1)
+
+        detector.contextToReturn = DetectionContext(cameraActive: true)
+        coordinator.postponeActiveBreak()
+        #expect(await waitUntil { status()["planState"] as? String == "postponed" })
+        #expect(try readStatus(file)["postponeCount"] as? Int == 2)
+        detector.contextToReturn = .clear
+        #expect(await waitUntil { status()["planState"] as? String == "break" })
+        #expect(try readStatus(file)["postponeCount"] as? Int == 2)
 
         coordinator.completeActiveBreak()
         #expect(await waitUntil { status()["planState"] as? String == "work" })
+        #expect(try readStatus(file)["postponeCount"] as? Int == 0)
         #expect(try readStatus(file)["nextBreakAt"] as? String == ISO8601DateFormatter().string(from: nextScheduledBreak))
     }
 

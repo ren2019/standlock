@@ -159,7 +159,7 @@ struct FlexibleWorkTests {
     }
 
     @Test
-    func capAndPostponeAreScopedToTheSameFlexibleBreak() async {
+    func repeatedPostponesConsumeOnlyOneFlexibleBreak() async throws {
         let locker = MockLocker()
         let scheduler = MockScheduler()
         let coordinator = BreakCoordinator(
@@ -171,11 +171,15 @@ struct FlexibleWorkTests {
         coordinator.start(with: [], preferences: preferences)
         coordinator.startWork(now: Date() - 60)
 
-        #expect(await waitUntil { locker.isShowing })
+        try #require(await waitUntil { locker.isShowing })
         coordinator.postponeActiveBreak()
         #expect(coordinator.localStatus().planState == .postponed)
-        #expect(await waitUntil { locker.showCount == 2 })
-        #expect(locker.lastCanPostpone == false)
+        try #require(await waitUntil { locker.showCount == 2 })
+        #expect(locker.lastCanPostpone == true)
+        coordinator.postponeActiveBreak()
+        #expect(coordinator.localStatus().planState == .postponed)
+        try #require(await waitUntil { locker.showCount == 3 })
+        #expect(locker.lastCanPostpone == true)
         #expect(locker.lastWaitsForReturn == true)
         coordinator.completeActiveBreak()
         coordinator.startWork()

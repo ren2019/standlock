@@ -64,9 +64,10 @@ final class AppCoordinator: ObservableObject {
         return LocalStatusPublisher(directory: directory, notificationName: .init(bundleID + ".localStatusDidChange")) {
             [weak self] in
             let now = Date()
-            let plan = self?.coordinator?.localStatus(now: now) ?? (planState: .inactive, nextBreakAt: nil)
+            let plan = self?.coordinator?.localStatus(now: now) ?? (.inactive, nil, 0)
             return LocalStatusSnapshot(
                 updatedAt: now, planState: plan.planState, nextBreakAt: plan.nextBreakAt,
+                postponeCount: plan.postponeCount,
                 inputIdleSeconds: IdleDetector().idleDuration()
             )
         }

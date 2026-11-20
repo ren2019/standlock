@@ -47,7 +47,9 @@ public final class LocalStatusPublisher {
 
     private func publish(heartbeat: Bool) {
         let status = snapshot()
-        let planChanged = lastPublished?.planState != status.planState || lastPublished?.nextBreakAt != status.nextBreakAt
+        let planChanged = lastPublished?.planState != status.planState
+            || lastPublished?.nextBreakAt != status.nextBreakAt
+            || lastPublished?.postponeCount != status.postponeCount
         guard heartbeat || planChanged else { return }
         do {
             let files = FileManager.default

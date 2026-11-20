@@ -10,17 +10,20 @@ public struct LocalStatusSnapshot: Encodable, Sendable {
     public let updatedAt: Date
     public let planState: PlanState
     public let nextBreakAt: Date?
+    public let postponeCount: Int
     public let inputIdleSeconds: TimeInterval?
 
-    public init(updatedAt: Date, planState: PlanState, nextBreakAt: Date?, inputIdleSeconds: TimeInterval?) {
+    public init(updatedAt: Date, planState: PlanState, nextBreakAt: Date?, postponeCount: Int = 0,
+                inputIdleSeconds: TimeInterval?) {
         self.updatedAt = updatedAt
         self.planState = planState
         self.nextBreakAt = nextBreakAt
+        self.postponeCount = postponeCount
         self.inputIdleSeconds = inputIdleSeconds.flatMap { $0.isFinite && $0 >= 0 ? $0 : nil }
     }
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, updatedAt, planState, nextBreakAt, inputIdleSeconds
+        case schemaVersion, updatedAt, planState, nextBreakAt, postponeCount, inputIdleSeconds
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -29,6 +32,7 @@ public struct LocalStatusSnapshot: Encodable, Sendable {
         try container.encode(updatedAt, forKey: .updatedAt)
         try container.encode(planState, forKey: .planState)
         try container.encode(nextBreakAt, forKey: .nextBreakAt)
+        try container.encode(postponeCount, forKey: .postponeCount)
         try container.encode(inputIdleSeconds, forKey: .inputIdleSeconds)
     }
 }
