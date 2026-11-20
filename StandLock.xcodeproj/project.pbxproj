@@ -123,6 +123,7 @@
 		CACA2A694D8386E2C52987E7 /* HomebrewUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41523222886A9E60C4A27DD /* HomebrewUpdater.swift */; };
 		CC482A757960812107868A0E /* PomodoroChipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB88FC9A43EC36467F5FA0D5 /* PomodoroChipView.swift */; };
 		CE55FB80048215F1C86DC99D /* DeskScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E37F0725B2E389ACEC601F /* DeskScene.swift */; };
+		D491A11D6C2F9A9B75D9B38B /* WorkModeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D530FA86B26D3086625D67 /* WorkModeSettingsView.swift */; };
 		D588F2EB46E9B8124422C5EE /* StatsFooter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43B1BE95A60D5294C770AEDE /* StatsFooter.swift */; };
 		D6409DD8838F0ED91DC848C5 /* NextIntervalLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33012BFC809E077C2D638165 /* NextIntervalLabel.swift */; };
 		D751E70A3ADA8406061C5A90 /* ManuscriptBreakView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99BB0E055C4BD25865AD3EE1 /* ManuscriptBreakView.swift */; };
@@ -267,6 +268,7 @@
 		E25B9FF366AECB943028EDF2 /* PomodoroRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PomodoroRow.swift; sourceTree = "<group>"; };
 		E4C53062EDA5469F4E031D21 /* RobotScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotScene.swift; sourceTree = "<group>"; };
 		E5A68046037D0CAAE70C0F88 /* ActionArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionArea.swift; sourceTree = "<group>"; };
+		E7D530FA86B26D3086625D67 /* WorkModeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkModeSettingsView.swift; sourceTree = "<group>"; };
 		E940304A1CB44B2B8CC0FC8C /* BreakScreenPreviewCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreakScreenPreviewCard.swift; sourceTree = "<group>"; };
 		EB686878D805A9466970EFA3 /* MenuBarSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarSettingsView.swift; sourceTree = "<group>"; };
 		EE28EF9957F31C9560EE4439 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -455,6 +457,7 @@
 				8402CB83954DB4BBDBE81036 /* TroubleshootingRow.swift */,
 				63A3581F884EEB803A283F9F /* TroubleshootingStatusRow.swift */,
 				FA7B3F29BBAB26D1B799C907 /* TroubleshootingView.swift */,
+				E7D530FA86B26D3086625D67 /* WorkModeSettingsView.swift */,
 			);
 			path = Pages;
 			sourceTree = "<group>";
@@ -779,6 +782,7 @@
 				853D7752B3F522DFB3E0AA02 /* WeekdaySymbols.swift in Sources */,
 				9EC3DB7CD0C70E2BA71F7117 /* WindowCloseGuard.swift in Sources */,
 				0961DAEECC3F5E489E40FBC0 /* WordmarkView.swift in Sources */,
+				D491A11D6C2F9A9B75D9B38B /* WorkModeSettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

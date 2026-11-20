@@ -40,6 +40,7 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
     var lastEscalationTier: Int?
     var lastNextIntervalLabel: String?
     var lastCanPostpone: Bool?
+    var lastWaitsForReturn: Bool?
     var lastPomodoroChip: PomodoroChip?
     var lastShownAt: Date?
     var showCount = 0
@@ -49,7 +50,7 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
                      exercise: Exercise?, preferences: AppPreferences,
                      statistics: BreakStatistics, escalationTier: Int,
                      nextIntervalLabel: String?, canPostpone: Bool,
-                     pomodoroChip: PomodoroChip?) {
+                     pomodoroChip: PomodoroChip?, waitsForReturn: Bool) {
         showOverlayCalled = true
         showCount += 1
         lastShownAt = Date()
@@ -60,6 +61,7 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
         lastEscalationTier = escalationTier
         lastNextIntervalLabel = nextIntervalLabel
         lastCanPostpone = canPostpone
+        lastWaitsForReturn = waitsForReturn
         isShowing = true
     }
 
@@ -109,6 +111,31 @@ func waitUntil(_ condition: () -> Bool) async -> Bool {
 
 @Suite("BreakCoordinator Tests")
 struct BreakCoordinatorTests {
+
+    @Test(arguments: [false, true]) @MainActor
+    func ordinaryBreakWaitsForReturnOnlyWhenRequested(waitForReturn: Bool) async {
+        let scheduler = MockScheduler()
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(0.01)
+        let locker = MockLocker()
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: locker)
+        defer { coordinator.stop() }
+        let schedule = makeSchedule(level: .strict, repetitionRule: RepetitionRule(
+            shortBreakCount: 3, shortBreakDuration: 10, longBreakDuration: 30
+        ))
+
+        coordinator.start(with: [schedule], preferences: AppPreferences(
+            idleDetectionEnabled: false, waitForBreakReturn: waitForReturn
+        ))
+
+        #expect(await waitUntil { locker.isShowing })
+        #expect(locker.lastWaitsForReturn == waitForReturn)
+        #expect(coordinator.captureEnforcementState().repetitionIndices[schedule.id] == 0)
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(300)
+        coordinator.completeActiveBreak()
+        coordinator.completeActiveBreak()
+        #expect(coordinator.captureEnforcementState().repetitionIndices[schedule.id] == 1)
+        #expect(scheduler.receivedAfterDates.count == 2)
+    }
 
     @Test(arguments: [false, true]) @MainActor
     func unsafeStoredBreakIsBoundedAtPresentation(repeating: Bool) async {

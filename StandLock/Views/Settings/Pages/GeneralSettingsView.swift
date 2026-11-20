@@ -10,6 +10,7 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         SettingsPageLayout("General") {
+            WorkModeSettingsView()
             SettingsSection("Startup") {
                 SettingsToggleRow(
                     "Launch at Startup",

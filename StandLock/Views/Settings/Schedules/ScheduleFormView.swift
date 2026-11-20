@@ -5,16 +5,21 @@ struct ScheduleFormView: View {
     @Binding var draft: ScheduleDraft
     /// The stored schedule, nil for a new one.
     let schedule: Schedule?
+    var rhythmOnly = false
 
     var body: some View {
-        nameSection
-        if schedule == nil {
-            TemplateRow(draft: $draft)
+        if !rhythmOnly {
+            nameSection
+            if schedule == nil {
+                TemplateRow(draft: $draft)
+            }
+            whenSection
         }
-        whenSection
         rhythmSection
-        DayPreviewCard(draft: draft, schedule: schedule)
-            .equatable()
+        if !rhythmOnly {
+            DayPreviewCard(draft: draft, schedule: schedule)
+                .equatable()
+        }
         disciplineSection
     }
 

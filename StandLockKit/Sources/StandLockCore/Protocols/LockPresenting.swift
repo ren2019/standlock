@@ -5,12 +5,13 @@ public protocol LockPresenting: Sendable {
     /// - Parameter nextIntervalLabel: Label of the work block that follows this break; `nil` for
     ///   schedules without a labeled interval cycle.
     /// - Parameter canPostpone: `false` for a break that has already been postponed once.
+    /// - Parameter waitsForReturn: Keep the overlay up after the countdown until the user confirms.
     /// - Parameter pomodoroChip: The session's round on a Pomodoro break; `nil` otherwise.
     @MainActor func showOverlay(level: DisciplineLevel, duration: TimeInterval,
                                 exercise: Exercise?, preferences: AppPreferences,
                                 statistics: BreakStatistics, escalationTier: Int,
                                 nextIntervalLabel: String?, canPostpone: Bool,
-                                pomodoroChip: PomodoroChip?)
+                                pomodoroChip: PomodoroChip?, waitsForReturn: Bool)
     @MainActor func dismissOverlay()
     @MainActor var isShowing: Bool { get }
 }

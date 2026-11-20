@@ -18,7 +18,7 @@ public struct ScheduleEvaluator: SchedulingEngine, Sendable {
 
     public func nextBreakTime(for schedule: Schedule, after date: Date, cycleIndex: Int) -> Date? {
         let calendar = Calendar.current
-        let interval = interval(for: schedule, cycleIndex: cycleIndex)
+        let interval = schedule.interval(at: cycleIndex)
 
         if isWithinActiveWindow(schedule, at: date) {
             let candidate = date.addingTimeInterval(interval)
@@ -35,13 +35,6 @@ public struct ScheduleEvaluator: SchedulingEngine, Sendable {
         }
 
         return nil
-    }
-
-    private func interval(for schedule: Schedule, cycleIndex: Int) -> TimeInterval {
-        guard let cycle = schedule.intervalCycle, !cycle.isEmpty else {
-            return BreakSafety.breakInterval(schedule.breakInterval)
-        }
-        return BreakSafety.breakInterval(cycle[cycleIndex % cycle.count].duration)
     }
 
     public func breakDuration(for schedule: Schedule, breakIndex: Int) -> TimeInterval {

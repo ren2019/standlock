@@ -67,6 +67,11 @@ public final class EventTapController: @unchecked Sendable {
         isActive = true
     }
 
+    /// Pass input through while continuing to recognise the emergency key combination.
+    public func stopBlockingInput() {
+        isBlocking = false
+    }
+
     public func stop() {
         cancelHoldTimer()
         if let source = runLoopSource {

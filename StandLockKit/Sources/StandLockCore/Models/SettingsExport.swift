@@ -88,9 +88,13 @@ public struct SettingsExport: Codable, Sendable, Equatable {
                   .allSatisfy({ $0.isFinite && (0...Self.maxDuration).contains($0) }),
               [p.gentleDailySkipLimit, p.firmDailySkipLimit, p.menuBarCountdownMinutes, p.calendarLookAheadMinutes]
                   .allSatisfy({ (0...Self.maxCount).contains($0) }),
+              AppPreferences.breakNowDelayRange.contains(p.breakNowDelaySeconds),
               p.pomodoro.isWithinBounds
         else { return false }
-        return schedules.allSatisfy { schedule in
+        guard !schedules.contains(where: { $0.id == FlexibleWorkSettings.scheduleID }),
+              (1...Self.maxCount).contains(p.flexibleWork.dailyBreakCap ?? 1)
+        else { return false }
+        return (schedules + [p.flexibleWork.schedule]).allSatisfy { schedule in
             let intervals = [schedule.breakInterval]
                 + (schedule.intervalCycle ?? []).map(\.duration)
             let breaks = [schedule.breakDuration]

@@ -17,11 +17,22 @@ struct MenuBarView: View {
                     state: coordinator.nextBreakState,
                     progress: coordinator.breakProgress,
                     scene: coordinator.preferences.menuScene,
-                    schedule: coordinator.schedules.first(where: \.isEnabled),
+                    schedule: coordinator.currentScheduleSettings,
                     pomodoro: coordinator.pomodoroStatus
                 )
                 statsBar
                 PomodoroRow()
+                if coordinator.isWaitingForWork {
+                    Button { coordinator.startWork() } label: {
+                        MenuBarPillLabel("Start work", symbol: "play.fill")
+                    }
+                    .buttonStyle(MenuBarPillStyle())
+                } else if coordinator.canStartBreakNow {
+                    Button { coordinator.startBreakNow() } label: {
+                        MenuBarPillLabel("Break now", symbol: "cup.and.saucer")
+                    }
+                    .buttonStyle(MenuBarPillStyle())
+                }
             }
             .padding(.bottom, 10)
 

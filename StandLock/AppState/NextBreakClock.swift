@@ -28,7 +28,8 @@ extension AppCoordinator {
             pausedUntil: pausedUntil,
             deferralReason: deferralReason,
             nextBreakTime: nextBreakTime,
-            hasSchedules: !schedules.isEmpty
+            hasSchedules: preferences.workScheduleMode == .flexible || !schedules.isEmpty,
+            isWaitingForWork: isWaitingForWork
         )
     }
 }

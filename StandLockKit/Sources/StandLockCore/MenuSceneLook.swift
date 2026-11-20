@@ -20,7 +20,7 @@ public enum MenuSceneLook: Equatable, Sendable {
         case .countingDown(let nextBreak):
             // The rounded seconds, so the look turns when the digits read 1:00.
             self = breakSecondsRemaining(until: nextBreak, now: now) > 60 ? .working : .breakSoon
-        case .noSchedules, .noActiveSchedules:
+        case .noSchedules, .noActiveSchedules, .waitingForWork:
             self = .noSchedules
         }
     }
