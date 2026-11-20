@@ -35,7 +35,7 @@ struct TroubleshootingView: View {
 
             SettingsSection("If a break won't close", note: "You can't open Settings while a break is on screen.") {
                 TroubleshootingRow("Gentle", symbol: "forward", text: Text(
-                    "Click Skip this break. With Progressive Enforcement on, later breaks may first ask you to wait, play a short game or type a sentence."
+                    "For scheduled breaks, click Continue Working. With Progressive Enforcement on, later breaks may first ask you to wait, play a short game or type a sentence."
                 ))
                 SettingsRowDivider()
                 TroubleshootingRow("Firm", symbol: "keyboard", text: Text(

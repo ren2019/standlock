@@ -1049,7 +1049,8 @@ public final class BreakCoordinator {
                            canPostpone: canPostpone, pomodoroChip: chip,
                            waitsForReturn: schedule.map {
                                $0.id == FlexibleWorkSettings.scheduleID || preferences.waitForBreakReturn
-                           } ?? false)
+                           } ?? false,
+                           isScheduledBreak: schedule != nil)
     }
 
     /// The cycle index was already advanced when this break triggered, so it points at the

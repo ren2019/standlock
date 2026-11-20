@@ -7,11 +7,12 @@ public protocol LockPresenting: Sendable {
     /// - Parameter canPostpone: Whether the overlay may offer the manual postpone action.
     /// - Parameter waitsForReturn: Keep the overlay up after the countdown until the user confirms.
     /// - Parameter pomodoroChip: The session's round on a Pomodoro break; `nil` otherwise.
+    /// - Parameter isScheduledBreak: Whether this break belongs to a fixed or flexible work schedule.
     @MainActor func showOverlay(level: DisciplineLevel, duration: TimeInterval,
                                 exercise: Exercise?, preferences: AppPreferences,
                                 statistics: BreakStatistics, escalationTier: Int,
                                 nextIntervalLabel: String?, canPostpone: Bool,
-                                pomodoroChip: PomodoroChip?, waitsForReturn: Bool)
+                                pomodoroChip: PomodoroChip?, waitsForReturn: Bool, isScheduledBreak: Bool)
     @MainActor func dismissOverlay()
     @MainActor var isShowing: Bool { get }
 }

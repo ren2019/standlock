@@ -41,6 +41,7 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
     var lastNextIntervalLabel: String?
     var lastCanPostpone: Bool?
     var lastWaitsForReturn: Bool?
+    var lastIsScheduledBreak: Bool?
     var lastPomodoroChip: PomodoroChip?
     var lastShownAt: Date?
     var showCount = 0
@@ -50,7 +51,7 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
                      exercise: Exercise?, preferences: AppPreferences,
                      statistics: BreakStatistics, escalationTier: Int,
                      nextIntervalLabel: String?, canPostpone: Bool,
-                     pomodoroChip: PomodoroChip?, waitsForReturn: Bool) {
+                     pomodoroChip: PomodoroChip?, waitsForReturn: Bool, isScheduledBreak: Bool) {
         showOverlayCalled = true
         showCount += 1
         lastShownAt = Date()
@@ -62,6 +63,7 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
         lastNextIntervalLabel = nextIntervalLabel
         lastCanPostpone = canPostpone
         lastWaitsForReturn = waitsForReturn
+        lastIsScheduledBreak = isScheduledBreak
         isShowing = true
     }
 
@@ -434,40 +436,60 @@ struct BreakCoordinatorTests {
         listener.cancel()
     }
 
-    @Test @MainActor
-    func skipActiveBreakDismissesAndResetsStreak() async {
+    @Test(arguments: [WorkScheduleMode.fixed, .flexible], [false, true]) @MainActor
+    func skippingAnActiveScheduledBreakSettlesOnceAndHonorsTheIntervalSetting(
+        mode: WorkScheduleMode, resetInterval: Bool
+    ) async throws {
+        let interval: TimeInterval = 180
         let scheduler = MockScheduler()
-        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(0.05)
-        let detector = MockDetector()
+        scheduler.nextBreakAfter = { $0.addingTimeInterval(interval) }
         let locker = MockLocker()
-
-        let coordinator = BreakCoordinator(scheduler: scheduler, detector: detector, locker: locker)
-        let schedule = makeSchedule(breakDuration: 5)
-
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: locker)
+        let schedule = makeSchedule(breakInterval: interval)
+        let preferences = AppPreferences(
+            idleDetectionEnabled: false, resetIntervalOnSkip: resetInterval, workScheduleMode: mode,
+            flexibleWork: FlexibleWorkSettings(breakInterval: interval)
+        )
+        let restored = EnforcementState(pendingBreakDates: [schedule.id: Date().addingTimeInterval(0.1)])
+        var started: BreakEvent?
         var skippedEvents: [BreakEvent] = []
         var lastStats: BreakStatistics?
         let listener = Task {
             for await event in coordinator.events {
+                if case .breakStarted(let e) = event { started = e }
                 if case .breakSkipped(let e) = event { skippedEvents.append(e) }
                 if case .statisticsUpdated(let s) = event { lastStats = s }
             }
         }
+        defer {
+            coordinator.stop()
+            listener.cancel()
+        }
 
-        coordinator.start(with: [schedule], preferences: AppPreferences())
-        try? await Task.sleep(for: .milliseconds(300))
+        coordinator.start(with: [schedule], preferences: preferences, restoring: restored)
+        if mode == .flexible {
+            coordinator.startWork(now: Date().addingTimeInterval(-interval))
+        }
+        try #require(await waitUntil { started != nil })
+        let breakStarted = try #require(started)
+        #expect(locker.isShowing)
+        #expect(locker.lastIsScheduledBreak == true)
 
-        #expect(locker.showOverlayCalled)
-
+        let beforeSkip = Date()
         coordinator.skipActiveBreak()
-        try? await Task.sleep(for: .milliseconds(100))
+        coordinator.skipActiveBreak()
+        let afterSkip = Date()
+        let nextBreak = try #require(coordinator.localStatus().nextBreakAt)
+        if resetInterval {
+            #expect((beforeSkip.addingTimeInterval(interval)...afterSkip.addingTimeInterval(interval)).contains(nextBreak))
+        } else {
+            #expect(nextBreak == breakStarted.scheduledAt.addingTimeInterval(interval))
+        }
 
-        #expect(locker.dismissOverlayCalled)
-        #expect(skippedEvents.count == 1)
-        #expect(lastStats?.breaksSkipped == 1)
+        #expect(!locker.isShowing)
+        #expect(await waitUntil { lastStats?.breaksSkipped == 1 })
+        #expect(skippedEvents.map(\.id) == [breakStarted.id])
         #expect(lastStats?.currentStreak == 0)
-
-        coordinator.stop()
-        listener.cancel()
     }
 
     @Test @MainActor

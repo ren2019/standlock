@@ -308,18 +308,18 @@
         }
       }
     },
-    "Click Skip this break. With Progressive Enforcement on, later breaks may first ask you to wait, play a short game or type a sentence." : {
+    "For scheduled breaks, click Continue Working. With Progressive Enforcement on, later breaks may first ask you to wait, play a short game or type a sentence." : {
       "localizations" : {
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bu molayı atla düğmesine tıklayın. Kademeli Zorlama açıksa sonraki molalar önce beklemenizi, kısa bir oyun oynamanızı veya bir cümle yazmanızı isteyebilir."
+            "value" : "Planlanmış molalarda Çalışmaya Devam Et düğmesine tıklayın. Kademeli Zorlama açıksa sonraki molalar önce beklemenizi, kısa bir oyun oynamanızı veya bir cümle yazmanızı isteyebilir."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "点击“跳过这次休息”。开启“逐级加强”后，之后的休息可能会先要求你等待、玩个小游戏或输入一句话。"
+            "value" : "在计划休息期间，点击“继续工作”。开启“逐级加强”后，之后的休息可能会先要求你等待、玩个小游戏或输入一句话。"
           }
         }
       }
@@ -592,6 +592,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已开启"
+          }
+        }
+      }
+    },
+    "Ending early counts as a skipped break." : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erken bitirilen mola atlanmış sayılır."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前结束将计为一次跳过。"
           }
         }
       }
@@ -4132,6 +4148,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "继续"
+          }
+        }
+      }
+    },
+    "Continue Working" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Çalışmaya Devam Et"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续工作"
           }
         }
       }
@@ -9801,18 +9833,18 @@
         }
       }
     },
-    "Click Skip." : {
+    "Click Continue Working." : {
       "localizations" : {
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Atla'ya tıkla."
+            "value" : "Çalışmaya Devam Et düğmesine tıkla."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "点击“跳过”。"
+            "value" : "点击“继续工作”。"
           }
         }
       }

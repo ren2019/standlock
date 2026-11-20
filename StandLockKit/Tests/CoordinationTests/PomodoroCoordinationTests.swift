@@ -62,6 +62,7 @@ struct ExternalBreakTests {
         coordinator.startExternalBreak(ExternalBreak(duration: 120, level: .firm, chip: chip))
         #expect(await waitUntil { locker.isShowing })
         #expect(locker.lastPomodoroChip == chip)
+        #expect(locker.lastIsScheduledBreak == false)
         #expect(locker.lastLevel == .firm)
         #expect(locker.lastDuration == TimeInterval(120))
         #expect(locker.lastEscalationTier == 0)
@@ -97,6 +98,7 @@ struct ExternalBreakTests {
         defer { coordinator.stop() }
         coordinator.startExternalBreak(ExternalBreak(duration: 60, level: .gentle, chip: nil))
         #expect(await waitUntil { locker.isShowing })
+        #expect(locker.lastIsScheduledBreak == false)
         coordinator.skipActiveBreak()
         #expect(await waitUntil { log.skipped == 1 })
         #expect(log.completed == 0)

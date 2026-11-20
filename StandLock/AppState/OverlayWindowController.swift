@@ -28,6 +28,7 @@ final class OverlayWindowController: LockPresenting {
     private var currentPomodoroChip: PomodoroChip?
     private var endDate: Date = .distantPast
     private var waitsForReturn = false
+    private var isScheduledBreak = false
     private var presentationID: UUID?
     private var lastScreenChangeHandled: Date = .distantPast
     private var policyBeforeOverlay: NSApplication.ActivationPolicy = .accessory
@@ -47,7 +48,7 @@ final class OverlayWindowController: LockPresenting {
         exercise: Exercise?, preferences: AppPreferences,
         statistics: BreakStatistics, escalationTier: Int = 0,
         nextIntervalLabel: String? = nil, canPostpone: Bool = false,
-        pomodoroChip: PomodoroChip? = nil, waitsForReturn: Bool = false
+        pomodoroChip: PomodoroChip? = nil, waitsForReturn: Bool = false, isScheduledBreak: Bool
     ) {
         // An app-modal alert (a permission restart, Sparkle) sits below the overlay and takes
         // every click from it, Skip included, until the break ends. Closing it returns `.abort`.
@@ -56,6 +57,7 @@ final class OverlayWindowController: LockPresenting {
         presentationID = UUID()
         endDate = Date().addingTimeInterval(duration)
         self.waitsForReturn = waitsForReturn
+        self.isScheduledBreak = isScheduledBreak
 
         currentLevel = level
         currentDuration = duration
@@ -143,13 +145,15 @@ final class OverlayWindowController: LockPresenting {
                 nextIntervalLabel: currentNextIntervalLabel,
                 pomodoroChip: currentPomodoroChip,
                 canPostpone: currentCanPostpone, waitsForReturn: waitsForReturn,
+                isScheduledBreak: isScheduledBreak,
                 onCountdownEnded: { [weak self] in
                     guard self?.presentationID == id else { return }
                     self?.eventTapController?.stopBlockingInput()
                 },
                 onSkip: { [weak self] in
-                    guard self?.presentationID == id else { return }
-                    self?.handleSkip()
+                    guard let self, self.presentationID == id,
+                          !self.isScheduledBreak || Date() < self.endDate else { return }
+                    self.handleSkip()
                 },
                 onPostpone: { [weak self] in
                     guard self?.presentationID == id else { return }

@@ -109,6 +109,7 @@ struct FlexibleWorkTests {
         coordinator.startWork(now: Date() - 60)
 
         #expect(await waitUntil { locker.isShowing })
+        #expect(locker.lastIsScheduledBreak == true)
         preferences.workScheduleMode = .fixed
         coordinator.updatePreferences(preferences)
         #expect(locker.isShowing)
