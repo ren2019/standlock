@@ -8,6 +8,7 @@ struct ManuscriptBreakView: View {
     let endDate: Date
     let waitsForReturn: Bool
     let isScheduledBreak: Bool
+    let flexibleProgress: FlexibleBreakProgress?
     let exercise: Exercise?
     let preferences: AppPreferences
     let statistics: BreakStatistics
@@ -34,6 +35,7 @@ struct ManuscriptBreakView: View {
          nextIntervalLabel: String? = nil,
          pomodoroChip: PomodoroChip? = nil,
          canPostpone: Bool, waitsForReturn: Bool, isScheduledBreak: Bool,
+         flexibleProgress: FlexibleBreakProgress?,
          onCountdownEnded: @escaping () -> Void,
          onSkip: @escaping () -> Void,
          onPostpone: @escaping () -> Void,
@@ -45,6 +47,7 @@ struct ManuscriptBreakView: View {
         self.endDate = endDate
         self.waitsForReturn = waitsForReturn
         self.isScheduledBreak = isScheduledBreak
+        self.flexibleProgress = flexibleProgress
         self.onCountdownEnded = onCountdownEnded
         self.exercise = exercise
         self.preferences = preferences
@@ -101,7 +104,8 @@ struct ManuscriptBreakView: View {
                             totalDuration: totalDuration,
                             palette: palette,
                             viewportHeight: geometry.size.height,
-                            reduceMotion: reduceMotion
+                            reduceMotion: reduceMotion,
+                            flexibleProgress: flexibleProgress
                         )
                         if !message.isEmpty {
                             // Verbatim: user input must not become a string catalog lookup.

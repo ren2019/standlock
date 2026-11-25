@@ -29,6 +29,7 @@ final class OverlayWindowController: LockPresenting {
     private var endDate: Date = .distantPast
     private var waitsForReturn = false
     private var isScheduledBreak = false
+    private var flexibleProgress: FlexibleBreakProgress?
     private var presentationID: UUID?
     private var lastScreenChangeHandled: Date = .distantPast
     private var policyBeforeOverlay: NSApplication.ActivationPolicy = .accessory
@@ -48,7 +49,8 @@ final class OverlayWindowController: LockPresenting {
         exercise: Exercise?, preferences: AppPreferences,
         statistics: BreakStatistics, escalationTier: Int = 0,
         nextIntervalLabel: String? = nil, canPostpone: Bool = false,
-        pomodoroChip: PomodoroChip? = nil, waitsForReturn: Bool = false, isScheduledBreak: Bool
+        pomodoroChip: PomodoroChip? = nil, waitsForReturn: Bool = false, isScheduledBreak: Bool,
+        flexibleProgress: FlexibleBreakProgress?
     ) {
         // An app-modal alert (a permission restart, Sparkle) sits below the overlay and takes
         // every click from it, Skip included, until the break ends. Closing it returns `.abort`.
@@ -58,6 +60,7 @@ final class OverlayWindowController: LockPresenting {
         endDate = Date().addingTimeInterval(duration)
         self.waitsForReturn = waitsForReturn
         self.isScheduledBreak = isScheduledBreak
+        self.flexibleProgress = flexibleProgress
 
         currentLevel = level
         currentDuration = duration
@@ -145,19 +148,24 @@ final class OverlayWindowController: LockPresenting {
                 nextIntervalLabel: currentNextIntervalLabel,
                 pomodoroChip: currentPomodoroChip,
                 canPostpone: currentCanPostpone, waitsForReturn: waitsForReturn,
-                isScheduledBreak: isScheduledBreak,
+                isScheduledBreak: isScheduledBreak, flexibleProgress: flexibleProgress,
                 onCountdownEnded: { [weak self] in
                     guard self?.presentationID == id else { return }
                     self?.eventTapController?.stopBlockingInput()
                 },
                 onSkip: { [weak self] in
-                    guard let self, self.presentationID == id,
-                          !self.isScheduledBreak || Date() < self.endDate else { return }
+                    guard let self, self.presentationID == id else { return }
+                    if self.isScheduledBreak && Date() >= self.endDate {
+                        // A button drawn just before the deadline can still receive the click.
+                        if self.flexibleProgress != nil { self.handleComplete() }
+                        return
+                    }
                     self.handleSkip()
                 },
                 onPostpone: { [weak self] in
-                    guard self?.presentationID == id else { return }
-                    self?.handlePostpone()
+                    guard let self, self.presentationID == id,
+                          self.flexibleProgress == nil || Date() < self.endDate else { return }
+                    self.handlePostpone()
                 },
                 onEscape: { [weak self] in
                     guard self?.presentationID == id else { return }

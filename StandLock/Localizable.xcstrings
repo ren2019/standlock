@@ -1028,6 +1028,22 @@
         }
       }
     },
+    "If you have been away from the keyboard and mouse for at least one minute when a scheduled break starts, that time counts toward the break." : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planlı mola başladığında klavye ve fareden en az bir dakikadır uzaktaysanız bu süre molaya sayılır."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定时休息开始时，如果你已连续至少一分钟没有使用键盘和鼠标，这段时间就计入本轮休息。"
+          }
+        }
+      }
+    },
     "Import" : {
       "localizations" : {
         "tr" : {
@@ -1088,6 +1104,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "导入…"
+          }
+        }
+      }
+    },
+    "Includes %@ before the break screen" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mola ekranı açılmadan önceki %@ dahil"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "含全屏前已休 %@"
           }
         }
       }
@@ -3698,6 +3730,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "休息总时长"
+          }
+        }
+      }
+    },
+    "Break complete" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mola tamamlandı"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本轮休息已达标"
           }
         }
       }
@@ -6875,6 +6923,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "屏幕共享"
+          }
+        }
+      }
+    },
+    "Remaining break time" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kalan mola süresi"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剩余休息时间"
+          }
+        }
+      }
+    },
+    "Rested %@ / %@" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dinlenilen süre %@ / %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已休 %@ / %@"
           }
         }
       }

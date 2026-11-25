@@ -42,6 +42,7 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
     var lastCanPostpone: Bool?
     var lastWaitsForReturn: Bool?
     var lastIsScheduledBreak: Bool?
+    var lastFlexibleProgress: FlexibleBreakProgress?
     var lastPomodoroChip: PomodoroChip?
     var lastShownAt: Date?
     var showCount = 0
@@ -51,7 +52,8 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
                      exercise: Exercise?, preferences: AppPreferences,
                      statistics: BreakStatistics, escalationTier: Int,
                      nextIntervalLabel: String?, canPostpone: Bool,
-                     pomodoroChip: PomodoroChip?, waitsForReturn: Bool, isScheduledBreak: Bool) {
+                     pomodoroChip: PomodoroChip?, waitsForReturn: Bool, isScheduledBreak: Bool,
+                     flexibleProgress: FlexibleBreakProgress?) {
         showOverlayCalled = true
         showCount += 1
         lastShownAt = Date()
@@ -64,6 +66,7 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
         lastCanPostpone = canPostpone
         lastWaitsForReturn = waitsForReturn
         lastIsScheduledBreak = isScheduledBreak
+        lastFlexibleProgress = flexibleProgress
         isShowing = true
     }
 

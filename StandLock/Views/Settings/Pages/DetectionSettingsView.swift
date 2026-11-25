@@ -102,7 +102,9 @@ struct DetectionSettingsView: View {
                 SettingsToggleRow(
                     "Idle as Break",
                     symbol: "moon.zzz",
-                    description: "If you have been away from the keyboard and mouse for at least as long as the break (and at least a minute) when it is due, the break counts as taken and the break screen does not open.",
+                    description: coordinator.preferences.workScheduleMode == .flexible
+                        ? "If you have been away from the keyboard and mouse for at least one minute when a scheduled break starts, that time counts toward the break."
+                        : "If you have been away from the keyboard and mouse for at least as long as the break (and at least a minute) when it is due, the break counts as taken and the break screen does not open.",
                     isOn: $coordinator.preferences.idleDetectionEnabled
                 )
             }

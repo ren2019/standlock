@@ -174,6 +174,7 @@ public final class BreakCoordinator {
     /// Floor between a skip and the break it schedules, for the case where the anchored slot
     /// has already gone by.
     private static let minimumLeadTime: TimeInterval = 60
+    private static let minimumIdleCredit: TimeInterval = 60
 
     private let deferralPollingInterval: TimeInterval
     /// How long before a break `.breakCue(.approaching)` plays.
@@ -930,10 +931,10 @@ public final class BreakCoordinator {
             let breakDuration = breakDuration(for: source)
             // A break under a minute must not be swallowed by a glance away from the keyboard:
             // idle counts as a break only once it reaches a minute, or the full break when longer.
-            if context.idleDuration >= max(breakDuration, 60) {
+            if context.idleDuration >= max(breakDuration, Self.minimumIdleCredit) {
                 if let schedule, schedule.id == FlexibleWorkSettings.scheduleID {
                     advanceScheduledBreak(for: schedule)
-                    presentBreak(for: source, context: context, canPostpone: false, idleCredit: true)
+                    presentBreak(for: source, context: context, canPostpone: false, idleCredit: context.idleDuration)
                     return
                 }
                 let idleEvent = BreakEvent(
@@ -989,7 +990,9 @@ public final class BreakCoordinator {
         }
 
         if let schedule { advanceScheduledBreak(for: schedule) }
-        presentBreak(for: source, context: context, canPostpone: true)
+        let idleCredit = preferences.idleDetectionEnabled && context.idleDuration >= Self.minimumIdleCredit
+            ? context.idleDuration : 0
+        presentBreak(for: source, context: context, canPostpone: true, idleCredit: idleCredit)
     }
 
     private func advanceScheduledBreak(for schedule: Schedule) {
@@ -1000,7 +1003,7 @@ public final class BreakCoordinator {
     /// Shows a break without counting it. A postponed break returns through here, so the daily
     /// count and the cycle advance only once, in `triggerBreak`.
     private func presentBreak(for source: BreakSource, context: DetectionContext, canPostpone: Bool,
-                              idleCredit: Bool = false) {
+                              idleCredit: TimeInterval = 0) {
         var effectiveLevel = level(of: source)
         if let reduction = shouldReduce(context: context) {
             effectiveLevel = reduction
@@ -1008,8 +1011,11 @@ public final class BreakCoordinator {
 
         let schedule = source.schedule
         let duration = breakDuration(for: source)
+        let flexibleProgress = schedule?.id == FlexibleWorkSettings.scheduleID
+            ? FlexibleBreakProgress(targetDuration: duration, idleCredit: idleCredit) : nil
+        let creditedInFull = idleCredit > 0 && flexibleProgress?.remainingDuration == 0
         // A focus cover is work time away from the Mac, not a stretch.
-        let exercise = idleCredit || isFocusCover(source) ? nil : exercises.randomElement()
+        let exercise = creditedInFull || isFocusCover(source) ? nil : exercises.randomElement()
         // External breaks use the level's base tier and never move a schedule's escalation.
         var tier = schedule.map(currentTier(for:)) ?? 0
         var overlayPreferences = preferences
@@ -1042,7 +1048,7 @@ public final class BreakCoordinator {
         }
 
         eventContinuation.yield(.breakStarted(breakEvent))
-        locker.showOverlay(level: effectiveLevel, duration: idleCredit ? 0 : duration,
+        locker.showOverlay(level: effectiveLevel, duration: flexibleProgress?.remainingDuration ?? duration,
                            exercise: exercise, preferences: overlayPreferences,
                            statistics: statistics, escalationTier: tier,
                            nextIntervalLabel: schedule.flatMap(nextIntervalLabel(for:)),
@@ -1050,7 +1056,7 @@ public final class BreakCoordinator {
                            waitsForReturn: schedule.map {
                                $0.id == FlexibleWorkSettings.scheduleID || preferences.waitForBreakReturn
                            } ?? false,
-                           isScheduledBreak: schedule != nil)
+                           isScheduledBreak: schedule != nil, flexibleProgress: flexibleProgress)
     }
 
     /// The cycle index was already advanced when this break triggered, so it points at the
