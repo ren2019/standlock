@@ -76,6 +76,7 @@ struct FlexibleWorkTests {
         #expect(await waitUntil { locker.isShowing })
         #expect(locker.lastLevel == .strict)
         #expect(locker.lastDuration == 0)
+        #expect(locker.lastFlexibleProgress?.creditedDuration == 10)
         #expect(locker.lastWaitsForReturn == true)
         #expect(locker.lastNextIntervalLabel == "Standing")
         #expect(locker.lastCanPostpone == false)
@@ -96,7 +97,7 @@ struct FlexibleWorkTests {
     }
 
     @Test
-    func modeSwitchKeepsTheActiveBreakButUsesTheNewProfileAfterCompletion() async {
+    func modeSwitchKeepsTheActiveBreakButUsesTheNewProfileAfterCompletion() async throws {
         let scheduler = MockScheduler()
         let locker = MockLocker()
         let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: locker)
@@ -115,7 +116,7 @@ struct FlexibleWorkTests {
         #expect(locker.isShowing)
         #expect(locker.lastWaitsForReturn == true)
         #expect(coordinator.localStatus().nextBreakAt == nil)
-        coordinator.completeActiveBreak()
+        coordinator.completeActiveBreak(now: try #require(locker.lastFlexibleProgress).deadline)
         #expect(coordinator.localStatus().nextBreakAt == scheduler.nextBreakTimes[fixed.id])
         coordinator.pause(for: 600)
         preferences.workScheduleMode = .flexible
@@ -182,7 +183,7 @@ struct FlexibleWorkTests {
         try #require(await waitUntil { locker.showCount == 3 })
         #expect(locker.lastCanPostpone == true)
         #expect(locker.lastWaitsForReturn == true)
-        coordinator.completeActiveBreak()
+        coordinator.completeActiveBreak(now: try #require(locker.lastFlexibleProgress).deadline)
         coordinator.startWork()
         #expect(!coordinator.isWaitingForWork)
         #expect(coordinator.localStatus().nextBreakAt == nil)

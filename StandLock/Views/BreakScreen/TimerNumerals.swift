@@ -56,6 +56,7 @@ struct TimerNumerals: View {
         let elapsed = max(credited, target - remainingSeconds)
         let fraction = target > 0 ? elapsed / target : 1
         let diameter = min(330, viewportHeight * 0.34)
+        let status: LocalizedStringKey = remainingSeconds == 0 ? "Break complete" : "Remaining break time"
 
         return VStack(spacing: 12) {
             ZStack {
@@ -63,12 +64,12 @@ struct TimerNumerals: View {
                     .stroke(palette.ink.opacity(0.16), lineWidth: 6)
                 Circle()
                     .trim(from: 0, to: fraction)
-                    .stroke(palette.accent, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .stroke(palette.accent, lineWidth: 6)
                     .rotationEffect(.degrees(-90))
                     .animation(reduceMotion || remainingSeconds == 0 ? nil : .linear(duration: 0.3), value: fraction)
 
                 VStack(spacing: 4) {
-                    Text(remainingSeconds == 0 ? "Break complete" : "Remaining break time")
+                    Text(status)
                         .font(BreakTypography.label(size: 13, weight: .semibold))
                     numerals(size: diameter * 0.3)
                     Text("Rested \(timeString(elapsed)) / \(timeString(target))")

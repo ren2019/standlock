@@ -471,8 +471,9 @@ struct BreakCoordinatorTests {
 
         coordinator.start(with: [schedule], preferences: preferences, restoring: restored)
         if mode == .flexible {
-            coordinator.startWork(now: Date().addingTimeInterval(-interval))
+            coordinator.startWork(now: Date().addingTimeInterval(-interval + 0.1))
         }
+        let armedAt = try #require(coordinator.localStatus().nextBreakAt)
         try #require(await waitUntil { started != nil })
         let breakStarted = try #require(started)
         #expect(locker.isShowing)
@@ -486,7 +487,7 @@ struct BreakCoordinatorTests {
         if resetInterval {
             #expect((beforeSkip.addingTimeInterval(interval)...afterSkip.addingTimeInterval(interval)).contains(nextBreak))
         } else {
-            #expect(nextBreak == breakStarted.scheduledAt.addingTimeInterval(interval))
+            #expect(nextBreak == armedAt.addingTimeInterval(interval))
         }
 
         #expect(!locker.isShowing)

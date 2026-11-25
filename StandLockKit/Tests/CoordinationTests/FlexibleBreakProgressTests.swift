@@ -82,10 +82,10 @@ struct FlexibleBreakProgressTests {
     }
 
     @Test
-    func fullyCreditedBreakWaitsAndCompletesOnceWhenUserReturns() async throws {
+    func deadlineSeparatesEarlyExitFromReturnConfirmation() async throws {
         let locker = MockLocker()
         let detector = MockDetector()
-        detector.contextToReturn = DetectionContext(idleDuration: 360)
+        detector.contextToReturn = DetectionContext(idleDuration: 120)
         let coordinator = BreakCoordinator(scheduler: MockScheduler(), detector: detector, locker: locker)
         var completions = 0
         var statistics: BreakStatistics?
@@ -107,16 +107,17 @@ struct FlexibleBreakProgressTests {
         coordinator.startWork(now: Date() - 1800)
 
         try #require(await waitUntil { locker.isShowing })
-        #expect(locker.lastDuration == 0)
-        #expect(locker.lastFlexibleProgress?.creditedDuration == 300)
-        #expect(locker.lastCanPostpone == false)
-        #expect(locker.lastWaitsForReturn == true)
+        let progress = try #require(locker.lastFlexibleProgress)
+        coordinator.completeActiveBreak(now: progress.deadline - 1)
+        coordinator.skipActiveBreak(now: progress.deadline)
+        coordinator.postponeActiveBreak(now: progress.deadline)
+        #expect(locker.isShowing)
         #expect(coordinator.localStatus().nextBreakAt == nil)
         #expect(completions == 0)
 
         let beforeReturn = Date()
-        coordinator.completeActiveBreak()
-        coordinator.completeActiveBreak()
+        coordinator.completeActiveBreak(now: progress.deadline)
+        coordinator.completeActiveBreak(now: progress.deadline)
         let afterReturn = Date()
         let next = try #require(coordinator.localStatus().nextBreakAt)
         #expect((beforeReturn + 1800 ... afterReturn + 1800).contains(next))

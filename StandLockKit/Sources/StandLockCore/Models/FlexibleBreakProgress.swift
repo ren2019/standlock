@@ -4,10 +4,13 @@ import Foundation
 public struct FlexibleBreakProgress: Sendable {
     public let targetDuration: TimeInterval
     public let creditedDuration: TimeInterval
+    public let deadline: Date
 
-    public init(targetDuration: TimeInterval, idleCredit: TimeInterval) {
+    public init(targetDuration: TimeInterval, idleCredit: TimeInterval, startedAt: Date = Date()) {
         self.targetDuration = targetDuration
-        self.creditedDuration = min(targetDuration, idleCredit)
+        let credit = min(targetDuration, idleCredit)
+        self.creditedDuration = credit
+        self.deadline = startedAt.addingTimeInterval(targetDuration - credit)
     }
 
     public var remainingDuration: TimeInterval { targetDuration - creditedDuration }

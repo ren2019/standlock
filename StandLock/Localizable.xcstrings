@@ -3702,6 +3702,22 @@
         }
       }
     },
+    "Break complete" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mola tamamlandı"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本轮休息已达标"
+          }
+        }
+      }
+    },
     "Break Screen" : {
       "localizations" : {
         "tr" : {
@@ -3730,22 +3746,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "休息总时长"
-          }
-        }
-      }
-    },
-    "Break complete" : {
-      "localizations" : {
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mola tamamlandı"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "本轮休息已达标"
           }
         }
       }
@@ -6895,38 +6895,6 @@
         }
       }
     },
-    "Schedules" : {
-      "localizations" : {
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Programlar"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "日程"
-          }
-        }
-      }
-    },
-    "Screen Sharing" : {
-      "localizations" : {
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ekran Paylaşımı"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "屏幕共享"
-          }
-        }
-      }
-    },
     "Remaining break time" : {
       "localizations" : {
         "tr" : {
@@ -6955,6 +6923,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已休 %@ / %@"
+          }
+        }
+      }
+    },
+    "Schedules" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Programlar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日程"
+          }
+        }
+      }
+    },
+    "Screen Sharing" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ekran Paylaşımı"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏幕共享"
           }
         }
       }

@@ -57,7 +57,7 @@ final class OverlayWindowController: LockPresenting {
         if NSApp.modalWindow != nil { NSApp.abortModal() }
         dismissOverlay()
         presentationID = UUID()
-        endDate = Date().addingTimeInterval(duration)
+        endDate = flexibleProgress?.deadline ?? Date().addingTimeInterval(duration)
         self.waitsForReturn = waitsForReturn
         self.isScheduledBreak = isScheduledBreak
         self.flexibleProgress = flexibleProgress
@@ -154,18 +154,13 @@ final class OverlayWindowController: LockPresenting {
                     self?.eventTapController?.stopBlockingInput()
                 },
                 onSkip: { [weak self] in
-                    guard let self, self.presentationID == id else { return }
-                    if self.isScheduledBreak && Date() >= self.endDate {
-                        // A button drawn just before the deadline can still receive the click.
-                        if self.flexibleProgress != nil { self.handleComplete() }
-                        return
-                    }
-                    self.handleSkip()
+                    guard let self, self.presentationID == id,
+                          self.flexibleProgress != nil || !self.isScheduledBreak || Date() < self.endDate else { return }
+                    self.onSkip?()
                 },
                 onPostpone: { [weak self] in
-                    guard let self, self.presentationID == id,
-                          self.flexibleProgress == nil || Date() < self.endDate else { return }
-                    self.handlePostpone()
+                    guard self?.presentationID == id else { return }
+                    self?.onPostpone?()
                 },
                 onEscape: { [weak self] in
                     guard self?.presentationID == id else { return }
@@ -173,7 +168,7 @@ final class OverlayWindowController: LockPresenting {
                 },
                 onComplete: { [weak self] in
                     guard self?.presentationID == id else { return }
-                    self?.handleComplete()
+                    self?.onComplete?()
                 }
             )
             window.setContent(LocalizedRoot(store: languageStore) { contentView })
@@ -212,21 +207,6 @@ final class OverlayWindowController: LockPresenting {
             }
         )
         eventTapController?.startBlocking()
-    }
-
-    private func handleSkip() {
-        dismissOverlay()
-        onSkip?()
-    }
-
-    private func handlePostpone() {
-        dismissOverlay()
-        onPostpone?()
-    }
-
-    private func handleComplete() {
-        dismissOverlay()
-        onComplete?()
     }
 
     private func handleEscape() {
@@ -270,7 +250,7 @@ final class OverlayWindowController: LockPresenting {
 
         guard isShowing else { return }
         if endDate <= now && !waitsForReturn {
-            handleComplete()
+            onComplete?()
             return
         }
         removeWindows()
