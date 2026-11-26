@@ -158,6 +158,7 @@ EXPECTED_DISPLAY_NAME=$4
 EXPECTED_TEAM_ID=$5
 REMOTE_TMP=$6
 APP=/Applications/StandLock.app
+PROCESS_PATTERN='^/Applications/StandLock[.]app/Contents/MacOS/StandLock$'
 PLIST_BUDDY=/usr/libexec/PlistBuddy
 
 fail() {
@@ -204,14 +205,14 @@ trap cleanup_remote EXIT
 
 ditto "$UNPACKED_APP" "$STAGED_APP"
 verify_app "$STAGED_APP"
-if pgrep -x StandLock >/dev/null 2>&1; then
-  pkill -TERM -x StandLock || true
+if pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1; then
+  pkill -TERM -f "$PROCESS_PATTERN" || true
   for _ in {1..50}; do
-    pgrep -x StandLock >/dev/null 2>&1 || break
+    pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 || break
     sleep 0.1
   done
 fi
-pgrep -x StandLock >/dev/null 2>&1 && fail "production StandLock is still running"
+pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 && fail "production StandLock is still running"
 
 mv "$APP" "$PREVIOUS_APP"
 if ! mv "$STAGED_APP" "$APP"; then
@@ -226,10 +227,10 @@ fi
 
 open -a /Applications/StandLock.app
 for _ in {1..100}; do
-  pgrep -x StandLock >/dev/null 2>&1 && break
+  pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 && break
   sleep 0.1
 done
-pgrep -x StandLock >/dev/null 2>&1 || fail "StandLock did not start"
+pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 || fail "StandLock did not start"
 INFO="$APP/Contents/Info.plist"
 "$PLIST_BUDDY" -c 'Print :CFBundleIdentifier' "$INFO"
 "$PLIST_BUDDY" -c 'Print :CFBundleShortVersionString' "$INFO"
@@ -238,8 +239,9 @@ REMOTE_INSTALL_EOF
 ); then
   fail "remote installation failed; backup kept at $BACKUP_PATH"
 fi
-INSTALLED_BUNDLE_ID=$(printf '%s\n' "$INSTALL_RESULT" | sed -n '1p')
-INSTALLED_VERSION=$(printf '%s\n' "$INSTALL_RESULT" | sed -n '2p')
-INSTALLED_BUILD=$(printf '%s\n' "$INSTALL_RESULT" | sed -n '3p')
+INSTALL_READBACK=$(printf '%s\n' "$INSTALL_RESULT" | tail -n 3)
+INSTALLED_BUNDLE_ID=$(printf '%s\n' "$INSTALL_READBACK" | sed -n '1p')
+INSTALLED_VERSION=$(printf '%s\n' "$INSTALL_READBACK" | sed -n '2p')
+INSTALLED_BUILD=$(printf '%s\n' "$INSTALL_READBACK" | sed -n '3p')
 [ "$INSTALLED_BUNDLE_ID" = "$BUNDLE_ID" ] && [ "$INSTALLED_VERSION" = "$VERSION" ] && [ "$INSTALLED_BUILD" = "$BUILD" ] || fail "installed version readback did not match"
 status "Running $INSTALLED_BUNDLE_ID $INSTALLED_VERSION ($INSTALLED_BUILD)"
