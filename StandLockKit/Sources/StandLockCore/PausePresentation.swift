@@ -40,7 +40,7 @@ public enum PausePresentation: Equatable, Sendable {
             guard cueUntil > now else { return nil }
             return MenuBarDisplay(
                 countdownSeconds: nil,
-                iconLook: iconLook(at: now, cueUntil: cueUntil, reduceMotion: reduceMotion)
+                iconLook: reduceMotion ? .working : iconLook(at: now, cueUntil: cueUntil, reduceMotion: false)
             )
         }
     }

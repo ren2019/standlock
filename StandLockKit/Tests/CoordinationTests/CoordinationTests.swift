@@ -1338,77 +1338,110 @@ struct BreakCoordinatorTests {
     }
 
     @Test @MainActor
-    func systemSleepDuringPauseResumesOnWake() async {
+    func systemSleepBeforeDeadlineKeepsPauseOnWake() async {
         let scheduler = MockScheduler()
         scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
-        let detector = MockDetector()
-        let locker = MockLocker()
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
+        defer { coordinator.stop() }
+        let now = Date()
+        coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
+        coordinator.pause(until: now.addingTimeInterval(300), now: now)
 
-        let coordinator = BreakCoordinator(scheduler: scheduler, detector: detector, locker: locker)
-        let schedule = makeSchedule()
+        coordinator.handleSystemSleep(now: now)
+        coordinator.handleSystemWake(now: now.addingTimeInterval(1))
 
-        var resumeEvent: CoordinatorEvent?
-        var scheduledEvents: [CoordinatorEvent] = []
-        let listener = Task {
-            for await event in coordinator.events {
-                if case .scheduleResumed = event { resumeEvent = event }
-                if case .nextBreakScheduled = event { scheduledEvents.append(event) }
-            }
-        }
-
-        coordinator.start(with: [schedule], preferences: AppPreferences())
-        try? await Task.sleep(for: .milliseconds(50))
-
-        coordinator.pause(for: 300)
-        try? await Task.sleep(for: .milliseconds(50))
-
-        coordinator.handleSystemSleep()
-        let countBeforeWake = scheduledEvents.count
-        coordinator.handleSystemWake()
-        try? await Task.sleep(for: .milliseconds(100))
-
-        #expect(resumeEvent != nil)
-        #expect(scheduledEvents.count > countBeforeWake)
-
-        coordinator.stop()
-        listener.cancel()
+        #expect(coordinator.localStatus(now: now.addingTimeInterval(1)).planState == .paused)
     }
 
     @Test @MainActor
-    func screenLockDuringPauseResumesOnUnlock() async {
+    func screenLockBeforeDeadlineKeepsPauseOnUnlock() {
         let scheduler = MockScheduler()
         scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
-        let detector = MockDetector()
-        let locker = MockLocker()
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
+        defer { coordinator.stop() }
+        let now = Date()
+        coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
+        coordinator.pause(until: now.addingTimeInterval(300), now: now)
 
-        let coordinator = BreakCoordinator(scheduler: scheduler, detector: detector, locker: locker)
-        let schedule = makeSchedule()
+        coordinator.handleScreenLock(now: now)
+        coordinator.handleScreenUnlock(now: now.addingTimeInterval(1))
 
-        var resumeEvent: CoordinatorEvent?
-        var scheduledEvents: [CoordinatorEvent] = []
+        #expect(coordinator.localStatus(now: now.addingTimeInterval(1)).planState == .paused)
+    }
+
+    @Test @MainActor
+    func sleepAcrossDeadlineEmitsOneExpiredResume() async {
+        let scheduler = MockScheduler()
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
+        defer { coordinator.stop() }
+        let now = Date()
+        coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
+
+        var resumeReasons: [ScheduleResumeReason] = []
         let listener = Task {
             for await event in coordinator.events {
-                if case .scheduleResumed = event { resumeEvent = event }
-                if case .nextBreakScheduled = event { scheduledEvents.append(event) }
+                if case .scheduleResumed(let reason) = event { resumeReasons.append(reason) }
             }
         }
+        defer { listener.cancel() }
 
-        coordinator.start(with: [schedule], preferences: AppPreferences())
-        try? await Task.sleep(for: .milliseconds(50))
+        coordinator.pause(until: now.addingTimeInterval(10), now: now)
+        coordinator.handleSystemSleep(now: now)
+        coordinator.handleSystemWake(now: now.addingTimeInterval(11))
 
-        coordinator.pause(for: 300)
-        try? await Task.sleep(for: .milliseconds(50))
+        #expect(await waitUntil { resumeReasons.count == 1 })
+        coordinator.resume()
+        coordinator.handleSystemSleep(now: now.addingTimeInterval(12))
+        coordinator.handleSystemWake(now: now.addingTimeInterval(13))
+        #expect(resumeReasons == [.expired])
+    }
 
-        coordinator.handleScreenLock()
-        let countBeforeUnlock = scheduledEvents.count
-        coordinator.handleScreenUnlock()
-        try? await Task.sleep(for: .milliseconds(100))
+    @Test @MainActor
+    func restoredUnexpiredPauseKeepsItsDeadline() async {
+        let scheduler = MockScheduler()
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
+        defer { coordinator.stop() }
+        let now = Date()
+        let deadline = now.addingTimeInterval(300)
+        coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
 
-        #expect(resumeEvent != nil)
-        #expect(scheduledEvents.count > countBeforeUnlock)
+        var pausedUntil: Date?
+        let listener = Task {
+            for await event in coordinator.events {
+                if case .schedulePaused(let until) = event { pausedUntil = until }
+            }
+        }
+        defer { listener.cancel() }
 
-        coordinator.stop()
-        listener.cancel()
+        coordinator.restorePause(until: deadline, now: now)
+
+        #expect(await waitUntil { pausedUntil == deadline })
+        #expect(coordinator.localStatus(now: now).planState == .paused)
+    }
+
+    @Test @MainActor
+    func restoredExpiredPauseEmitsExpiredResume() async {
+        let scheduler = MockScheduler()
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
+        defer { coordinator.stop() }
+        let now = Date()
+        coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
+
+        var resumeReasons: [ScheduleResumeReason] = []
+        let listener = Task {
+            for await event in coordinator.events {
+                if case .scheduleResumed(let reason) = event { resumeReasons.append(reason) }
+            }
+        }
+        defer { listener.cancel() }
+
+        coordinator.restorePause(until: now.addingTimeInterval(-1), now: now)
+
+        #expect(await waitUntil { resumeReasons == [.expired] })
+        #expect(coordinator.localStatus(now: now).planState != .paused)
     }
 
     // MARK: - Cycle Index Tests

@@ -69,12 +69,18 @@ struct PausePresentationTests {
     }
 
     @Test(arguments: [1.0, 5.0, 9.0])
-    func reduceMotionKeepsThePausedIcon(elapsed: TimeInterval) {
+    func reduceMotionKeepsTheCountdownIconPaused(elapsed: TimeInterval) {
         let resumeAt = start.addingTimeInterval(10)
         let pause = PausePresentation.paused(resumeAt: resumeAt)
-        let cue = PausePresentation.expired(cueUntil: resumeAt)
 
         #expect(pause.menuBarDisplay(at: start.addingTimeInterval(elapsed), reduceMotion: true)?.iconLook == .paused)
-        #expect(cue.menuBarDisplay(at: start.addingTimeInterval(elapsed), reduceMotion: true)?.iconLook == .paused)
+    }
+
+    @Test
+    func reduceMotionSkipsExpiredCueAlternation() {
+        let cue = PausePresentation.expired(cueUntil: start.addingTimeInterval(10))
+
+        #expect(cue.menuBarDisplay(at: start.addingTimeInterval(1), reduceMotion: true)
+                == .init(countdownSeconds: nil, iconLook: .working))
     }
 }

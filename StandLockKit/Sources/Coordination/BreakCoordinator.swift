@@ -99,7 +99,8 @@ public final class BreakCoordinator {
     private var preferences: AppPreferences = AppPreferences()
     private var repetitionTrackers: [UUID: RepetitionTracker] = [:]
     private var breakTimer: Task<Void, Never>?
-    private var isPaused: Bool = false
+    private var pausedUntil: Date?
+    private var isPaused: Bool { pausedUntil != nil }
     /// Set while the screen is locked or the machine is asleep. Distinct from `isPaused`, which
     /// is the user-facing pause; suspension only blocks work being started behind a dark screen.
     private var isSuspended: Bool = false
@@ -294,6 +295,7 @@ public final class BreakCoordinator {
     public func stop() {
         breakTimer?.cancel()
         breakTimer = nil
+        pausedUntil = nil
         clearPendingBreak()
         postponedSchedule = nil
         postponedExternal = nil
@@ -305,26 +307,50 @@ public final class BreakCoordinator {
     }
 
     /// Ignored while a Pomodoro session runs: stop the session instead.
-    public func pause(for duration: TimeInterval) {
+    public func pause(for duration: TimeInterval, now: Date = Date()) {
+        pause(until: now.addingTimeInterval(duration), now: now)
+    }
+
+    public func pause(until deadline: Date, now: Date = Date()) {
+        pause(until: deadline, now: now, expiredReason: .automatic)
+    }
+
+    public func restorePause(until deadline: Date, now: Date = Date()) {
+        pause(until: deadline, now: now, expiredReason: .expired)
+    }
+
+    private func pause(until deadline: Date, now: Date, expiredReason: ScheduleResumeReason) {
         // Pause and the phase timer share `breakTimer`; a session is stopped, not paused.
         guard pomodoro == nil else { return }
         breakTimer?.cancel()
         breakTimer = nil
         clearPendingBreak()
         flexibleWorkStarted = false
-        isPaused = true
-        let until = Date().addingTimeInterval(duration)
-        eventContinuation.yield(.schedulePaused(until: until))
+        pausedUntil = deadline
+        eventContinuation.yield(.schedulePaused(until: deadline))
+        armPauseTimer(now: now, expiredReason: expiredReason)
+    }
+
+    private func armPauseTimer(now: Date, expiredReason: ScheduleResumeReason) {
+        guard let pausedUntil, !isSuspended else { return }
+        let remaining = pausedUntil.timeIntervalSince(now)
+        guard remaining > 0 else {
+            resume(reason: expiredReason)
+            return
+        }
         breakTimer = Task {
-            try? await Task.sleep(for: .seconds(duration))
+            try? await Task.sleep(for: .seconds(remaining))
             guard !Task.isCancelled else { return }
             resume(reason: .automatic)
         }
     }
 
     public func resume(reason: ScheduleResumeReason = .manual) {
-        isPaused = false
-        eventContinuation.yield(.scheduleResumed(reason))
+        let wasPaused = isPaused
+        pausedUntil = nil
+        if wasPaused {
+            eventContinuation.yield(.scheduleResumed(reason))
+        }
         rearm()
     }
 
@@ -402,7 +428,7 @@ public final class BreakCoordinator {
             guard let awayFrom else { return }
             catchUpPomodoro(awayFrom: awayFrom, to: now)
         } else if isPaused {
-            resume(reason: .automatic)
+            armPauseTimer(now: now, expiredReason: .expired)
         } else {
             rearm()
         }
@@ -699,7 +725,7 @@ public final class BreakCoordinator {
     public func startPomodoro(_ configuration: PomodoroConfiguration, level: DisciplineLevel, now: Date = Date()) {
         guard pomodoro == nil, currentBreak == nil else { return }
         if isPaused {
-            isPaused = false
+            pausedUntil = nil
             eventContinuation.yield(.scheduleResumed(.manual))
         }
         breakTimer?.cancel()

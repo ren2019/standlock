@@ -15,9 +15,16 @@ struct StandLockApp: App {
                     .environmentObject(appDelegate.updateObserver)
             }
         } label: {
-            let menuBarLook = MenuSceneLook(state: appCoordinator.nextBreakState, pomodoro: appCoordinator.pomodoroStatus)
-            Image(nsImage: MenuBarIcon.make(progress: appCoordinator.breakProgress, look: menuBarLook))
-                .accessibilityLabel(MenuBarIcon.accessibilityLabel(for: menuBarLook))
+            let stateLook = MenuSceneLook(state: appCoordinator.nextBreakState, pomodoro: appCoordinator.pomodoroStatus)
+            let displayedLook = appCoordinator.pauseMenuBarDisplay?.iconLook ?? stateLook
+            ZStack {
+                Image(nsImage: MenuBarIcon.make(progress: appCoordinator.breakProgress, look: stateLook))
+                    .opacity(displayedLook == stateLook ? 1 : 0)
+                Image(nsImage: MenuBarIcon.make(progress: appCoordinator.breakProgress, look: displayedLook))
+                    .opacity(displayedLook == stateLook ? 0 : 1)
+            }
+            .accessibilityLabel(MenuBarIcon.accessibilityLabel(for: stateLook))
+            .animation(.easeInOut(duration: 0.2), value: displayedLook)
             if let timerText = appCoordinator.menuBarTimerText {
                 Text(timerText)
                     .monospacedDigit()

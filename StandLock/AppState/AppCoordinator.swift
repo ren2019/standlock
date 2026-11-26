@@ -30,10 +30,17 @@ final class AppCoordinator: ObservableObject {
     @Published var currentLevel: DisciplineLevel = .gentle
     @Published var todayStats: BreakStatistics = BreakStatistics()
     @Published var deferralReason: DeferralReason?
-    @Published var isPaused: Bool = false
+    @Published private(set) var pausePresentation: PausePresentation?
     @Published private(set) var canStartBreakNow = false
     @Published private(set) var isWaitingForWork = false
-    @Published var pausedUntil: Date?
+
+    var isPaused: Bool { pausePresentation?.isPaused == true }
+    var pausedUntil: Date? { pausePresentation?.resumeAt }
+    var pauseMenuBarDisplay: PausePresentation.MenuBarDisplay? {
+        pausePresentation?.menuBarDisplay(
+            at: Date(), reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        )
+    }
     @Published var schedules: [Schedule] = []
     @Published var preferences: AppPreferences = AppPreferences()
     @Published var sharesLocalStatus = UserDefaults.standard.bool(forKey: AppCoordinator.localStatusSharingKey) {
@@ -106,6 +113,7 @@ final class AppCoordinator: ObservableObject {
     /// When the break now on screen came up. Written synchronously by UserDefaults, so it
     /// survives a crash or `kill -9`; a forced power-off seconds after the write may lose it.
     private static let breakOnScreenKey = "breakOnScreenSince"
+    private static let pauseDeadlineKey = "pauseResumeAt"
     /// When the last launch that found that marker happened. Read by the Troubleshooting page,
     /// which outlives the one alert shown at that launch.
     static let lastUncleanExitKey = "lastUncleanExitAt"
@@ -163,6 +171,7 @@ final class AppCoordinator: ObservableObject {
         // Always built: a Pomodoro session runs with no schedule enabled.
         startCoordinator(restoring: carriedStateForToday())
         restoreSavedPomodoroSession()
+        restoreSavedPause()
         updateLocalStatusPublisher()
         if launchGuard != nil {
             UserDefaults.standard.set(Date(), forKey: Self.lastUncleanExitKey)
@@ -268,6 +277,20 @@ final class AppCoordinator: ObservableObject {
             breakHistory.upsert(record)
             saveHistory()
         }
+    }
+
+    private func restoreSavedPause() {
+        guard let deadline = UserDefaults.standard.object(forKey: Self.pauseDeadlineKey) as? Date else { return }
+        guard coordinator?.pomodoroSession == nil else {
+            clearPausePresentation()
+            return
+        }
+        coordinator?.restorePause(until: deadline)
+    }
+
+    private func clearPausePresentation() {
+        pausePresentation = nil
+        UserDefaults.standard.removeObject(forKey: Self.pauseDeadlineKey)
     }
 
     func saveSchedules() {
@@ -525,6 +548,7 @@ final class AppCoordinator: ObservableObject {
     }
 
     func startPomodoro() {
+        clearPausePresentation()
         let level = strictestEnabledLevel
         pomodoroRequestedLevel = level
         coordinator?.startPomodoro(preferences.pomodoro, level: enforceable(level))
@@ -570,24 +594,22 @@ final class AppCoordinator: ObservableObject {
         // so a rebuild would otherwise re-arm the daily cap from zero and restart the interval
         // cycle -- editing a schedule at noon quietly undid the morning's enforcement.
         saveEnforcementState()
-        // A pause is a user decision with a deadline, not coordinator bookkeeping. The rebuilt
-        // coordinator starts unpaused and arms a break straight away, so the time still owed has
-        // to be re-applied -- otherwise editing a schedule ends a pause the user asked for, and
-        // the next break lands during the hour they meant to keep clear. Re-applying it yields
-        // `schedulePaused`, which restores the published flags below through `handleEvent`.
-        let pauseRemaining = pausedUntil?.timeIntervalSinceNow
+        // A pause keeps its original deadline across a rebuild. Re-applying it yields
+        // `schedulePaused`, which restores the published presentation through `handleEvent`.
+        let pauseDeadline = pausedUntil
         // A session keeps its own level across a rebuild (S87 picks it at start), gated again here.
         let session = coordinator?.pomodoroSession
         // Nil once the guarded break opened; read back in the same turn, as the state above.
         launchGuard = coordinator?.launchGuard
         stopCoordinator()
-        isPaused = false
-        pausedUntil = nil
+        if pauseDeadline != nil { pausePresentation = nil }
         // Starting a session ended any pause, so there is none to re-apply with one.
         startCoordinator(restoring: carriedStateForToday(),
                          pomodoro: session.map { ($0, enforceable(pomodoroRequestedLevel ?? strictestEnabledLevel)) })
-        if session == nil, let pauseRemaining, pauseRemaining > 0 {
-            coordinator?.pause(for: pauseRemaining)
+        if session != nil {
+            clearPausePresentation()
+        } else if let pauseDeadline {
+            coordinator?.pause(until: pauseDeadline)
         }
         clearNextBreakIfIdle()
         localStatusPublisher.refreshForPlanChange()
@@ -649,13 +671,22 @@ final class AppCoordinator: ObservableObject {
             deferralReason = reason
 
         case .schedulePaused(let until):
-            isPaused = true
-            pausedUntil = until
+            pausePresentation = .paused(resumeAt: until)
+            UserDefaults.standard.set(until, forKey: Self.pauseDeadlineKey)
             menuBarTimerText = nil
 
-        case .scheduleResumed:
-            isPaused = false
-            pausedUntil = nil
+        case .scheduleResumed(let reason):
+            switch reason {
+            case .automatic, .manual:
+                pausePresentation = nil
+            case .expired:
+                if isPaused {
+                    pausePresentation = .expired(
+                        cueUntil: Date().addingTimeInterval(PausePresentation.cueDuration)
+                    )
+                }
+            }
+            UserDefaults.standard.removeObject(forKey: Self.pauseDeadlineKey)
             updateMenuBarTimer()
 
         case .breakCue(let cue):
@@ -773,8 +804,7 @@ final class AppCoordinator: ObservableObject {
     }
 
     func resumeSchedule() {
-        isPaused = false
-        pausedUntil = nil
+        clearPausePresentation()
         breakProgress = 0
         breakScheduledAt = nil
         nextBreakTime = nil
@@ -830,8 +860,10 @@ final class AppCoordinator: ObservableObject {
                 recalculateProgress()
                 updateMenuBarTimer()
 
-                let interval: Duration = if let remaining = nextBreakTime?.timeIntervalSinceNow,
-                                            menuBarTimerText != nil, remaining < 60 {
+                let interval: Duration = if pausePresentation != nil {
+                    .seconds(1)
+                } else if let remaining = nextBreakTime?.timeIntervalSinceNow,
+                          menuBarTimerText != nil, remaining < 60 {
                     .seconds(1)
                 } else {
                     .seconds(10)
@@ -855,10 +887,21 @@ final class AppCoordinator: ObservableObject {
 
     private func updateMenuBarTimer() {
         refreshQuickActions()
+        let now = Date()
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if let presentation = pausePresentation, !presentation.isPaused,
+           presentation.menuBarDisplay(at: now, reduceMotion: reduceMotion) == nil {
+            pausePresentation = nil
+        }
+        if let seconds = pausePresentation?.menuBarDisplay(at: now, reduceMotion: reduceMotion)?.countdownSeconds {
+            menuBarTimerText = formatCountdown(secondsRemaining: TimeInterval(seconds))
+            return
+        }
         let remaining = nextBreakTime?.timeIntervalSinceNow ?? 0
+        let showsExpiredCue = pausePresentation.map { !$0.isPaused } == true
         menuBarTimerText = formatMenuBarTimer(
             secondsRemaining: remaining,
-            showFullTimer: preferences.showFullWorkTimer,
+            showFullTimer: showsExpiredCue || preferences.showFullWorkTimer,
             countdownMinutes: preferences.menuBarCountdownMinutes,
             isBreakActive: isBreakActive,
             isPaused: isPaused,
