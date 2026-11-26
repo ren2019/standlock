@@ -23,6 +23,7 @@ struct StandLockApp: App {
                 Image(nsImage: MenuBarIcon.make(progress: appCoordinator.breakProgress, look: displayedLook))
                     .opacity(displayedLook == stateLook ? 0 : 1)
             }
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(MenuBarIcon.accessibilityLabel(for: stateLook))
             .animation(.easeInOut(duration: 0.2), value: displayedLook)
             if let timerText = appCoordinator.menuBarTimerText {
