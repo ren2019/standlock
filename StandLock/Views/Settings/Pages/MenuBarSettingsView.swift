@@ -19,22 +19,49 @@ struct MenuBarSettingsView: View {
         )
     }
 
+    private let iconPreviews: [(look: MenuSceneLook, title: LocalizedStringKey)] = [
+        (.working, "Working"),
+        (.breakSoon, "Break soon"),
+        (.timeToStand, "Time to stand"),
+        (.paused, "Paused"),
+        (.breakWaiting, "Break waiting"),
+        (.noSchedules, "No active schedules")
+    ]
+
     var body: some View {
         SettingsPageLayout("Menu Bar") {
             SettingsSection("Preview") {
-                HStack(spacing: SettingsTokens.stripItemSpacing) {
-                    Image(nsImage: MenuBarIcon.make(progress: 0.5))
-                        .renderingMode(.template)
-                        .foregroundStyle(.primary)
-                        .accessibilityHidden(true)
-                    if let previewTimer {
-                        Text(previewTimer)
-                            .monospacedDigit()
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: SettingsTokens.stripItemSpacing) {
+                        Image(nsImage: MenuBarIcon.make(progress: 0.5))
+                            .renderingMode(.template)
+                            .foregroundStyle(.primary)
+                            .accessibilityHidden(true)
+                        if let previewTimer {
+                            Text(previewTimer)
+                                .monospacedDigit()
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(SettingsTokens.stripInsets)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: SettingsTokens.stripRadius))
+
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), alignment: .leading)], spacing: 12) {
+                        ForEach(iconPreviews.indices, id: \.self) { index in
+                            let preview = iconPreviews[index]
+                            HStack(spacing: 8) {
+                                Image(nsImage: MenuBarIcon.make(progress: 0.5, look: preview.look))
+                                    .renderingMode(.template)
+                                    .foregroundStyle(.primary)
+                                    .accessibilityHidden(true)
+                                Text(preview.title)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 4)
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(SettingsTokens.stripInsets)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: SettingsTokens.stripRadius))
                 .padding(SettingsTokens.rowInsets)
             }
 
