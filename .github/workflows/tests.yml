@@ -39,15 +39,15 @@ jobs:
           xcodebuild build \
             -project StandLock.xcodeproj \
             -scheme StandLock \
-            -configuration Debug \
+            -configuration Release \
             -destination 'generic/platform=macOS' \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Package the Debug app
-        run: ditto -c -k --keepParent "$RUNNER_TEMP/DerivedData/Build/Products/Debug/StandLock.app" "$RUNNER_TEMP/StandLock.zip"
+      - name: Package the Release app
+        run: ditto -c -k --keepParent "$RUNNER_TEMP/DerivedData/Build/Products/Release/StandLock.app" "$RUNNER_TEMP/StandLock.zip"
 
-      - name: Upload the Debug app artifact
+      - name: Upload the Release app artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: StandLock-${{ github.sha }}
