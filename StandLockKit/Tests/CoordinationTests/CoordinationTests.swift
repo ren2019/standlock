@@ -1337,24 +1337,13 @@ struct BreakCoordinatorTests {
         listener.cancel()
     }
 
-    @Test @MainActor
-    func systemSleepBeforeDeadlineKeepsPauseOnWake() async {
-        let scheduler = MockScheduler()
-        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
-        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
-        defer { coordinator.stop() }
-        let now = Date()
-        coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
-        coordinator.pause(until: now.addingTimeInterval(300), now: now)
-
-        coordinator.handleSystemSleep(now: now)
-        coordinator.handleSystemWake(now: now.addingTimeInterval(1))
-
-        #expect(coordinator.localStatus(now: now.addingTimeInterval(1)).planState == .paused)
+    enum Suspension {
+        case sleep
+        case lock
     }
 
-    @Test @MainActor
-    func screenLockBeforeDeadlineKeepsPauseOnUnlock() {
+    @Test(arguments: [Suspension.sleep, .lock]) @MainActor
+    func suspensionBeforeDeadlineKeepsPause(_ suspension: Suspension) async {
         let scheduler = MockScheduler()
         scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
         let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
@@ -1363,8 +1352,14 @@ struct BreakCoordinatorTests {
         coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
         coordinator.pause(until: now.addingTimeInterval(300), now: now)
 
-        coordinator.handleScreenLock(now: now)
-        coordinator.handleScreenUnlock(now: now.addingTimeInterval(1))
+        switch suspension {
+        case .sleep:
+            coordinator.handleSystemSleep(now: now)
+            coordinator.handleSystemWake(now: now.addingTimeInterval(1))
+        case .lock:
+            coordinator.handleScreenLock(now: now)
+            coordinator.handleScreenUnlock(now: now.addingTimeInterval(1))
+        }
 
         #expect(coordinator.localStatus(now: now.addingTimeInterval(1)).planState == .paused)
     }

@@ -594,8 +594,6 @@ final class AppCoordinator: ObservableObject {
         // so a rebuild would otherwise re-arm the daily cap from zero and restart the interval
         // cycle -- editing a schedule at noon quietly undid the morning's enforcement.
         saveEnforcementState()
-        // A pause keeps its original deadline across a rebuild. Re-applying it yields
-        // `schedulePaused`, which restores the published presentation through `handleEvent`.
         let pauseDeadline = pausedUntil
         // A session keeps its own level across a rebuild (S87 picks it at start), gated again here.
         let session = coordinator?.pomodoroSession
@@ -610,6 +608,7 @@ final class AppCoordinator: ObservableObject {
             clearPausePresentation()
         } else if let pauseDeadline {
             coordinator?.pause(until: pauseDeadline)
+            pausePresentation = .paused(resumeAt: pauseDeadline)
         }
         clearNextBreakIfIdle()
         localStatusPublisher.refreshForPlanChange()
@@ -674,6 +673,8 @@ final class AppCoordinator: ObservableObject {
             pausePresentation = .paused(resumeAt: until)
             UserDefaults.standard.set(until, forKey: Self.pauseDeadlineKey)
             menuBarTimerText = nil
+            progressTimer?.cancel()
+            startProgressTimer()
 
         case .scheduleResumed(let reason):
             switch reason {
