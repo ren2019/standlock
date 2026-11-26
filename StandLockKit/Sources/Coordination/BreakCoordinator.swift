@@ -318,13 +318,13 @@ public final class BreakCoordinator {
         breakTimer = Task {
             try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled else { return }
-            resume()
+            resume(reason: .automatic)
         }
     }
 
-    public func resume() {
+    public func resume(reason: ScheduleResumeReason = .manual) {
         isPaused = false
-        eventContinuation.yield(.scheduleResumed)
+        eventContinuation.yield(.scheduleResumed(reason))
         rearm()
     }
 
@@ -402,7 +402,7 @@ public final class BreakCoordinator {
             guard let awayFrom else { return }
             catchUpPomodoro(awayFrom: awayFrom, to: now)
         } else if isPaused {
-            resume()
+            resume(reason: .automatic)
         } else {
             rearm()
         }
@@ -700,7 +700,7 @@ public final class BreakCoordinator {
         guard pomodoro == nil, currentBreak == nil else { return }
         if isPaused {
             isPaused = false
-            eventContinuation.yield(.scheduleResumed)
+            eventContinuation.yield(.scheduleResumed(.manual))
         }
         breakTimer?.cancel()
         breakTimer = nil

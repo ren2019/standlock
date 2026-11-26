@@ -308,7 +308,7 @@ struct PomodoroSessionCoordinationTests {
         coordinator.pause(for: 3600)
         startEndingFocus(coordinator)
         #expect(await waitUntil { locker.isShowing })
-        #expect(log.events.contains { if case .scheduleResumed = $0 { true } else { false } })
+        #expect(log.events.contains { if case .scheduleResumed(.manual) = $0 { true } else { false } })
     }
 
     @Test

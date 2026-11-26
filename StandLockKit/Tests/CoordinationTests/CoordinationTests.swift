@@ -356,11 +356,11 @@ struct BreakCoordinatorTests {
         let schedule = makeSchedule()
 
         var pauseEvent: CoordinatorEvent?
-        var resumeEvent: CoordinatorEvent?
+        var resumeReason: ScheduleResumeReason?
         let listener = Task {
             for await event in coordinator.events {
                 if case .schedulePaused = event { pauseEvent = event }
-                if case .scheduleResumed = event { resumeEvent = event }
+                if case .scheduleResumed(let reason) = event { resumeReason = reason }
             }
         }
 
@@ -375,10 +375,32 @@ struct BreakCoordinatorTests {
         coordinator.resume()
         try? await Task.sleep(for: .milliseconds(100))
 
-        #expect(resumeEvent != nil)
+        #expect(resumeReason == .manual)
 
         coordinator.stop()
         listener.cancel()
+    }
+
+    @Test @MainActor
+    func automaticPauseTimeoutEmitsAutomaticResume() async {
+        let scheduler = MockScheduler()
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
+        defer { coordinator.stop() }
+        coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
+
+        var resumeReason: ScheduleResumeReason?
+        let listener = Task {
+            for await event in coordinator.events {
+                if case .scheduleResumed(let reason) = event { resumeReason = reason }
+            }
+        }
+        defer { listener.cancel() }
+
+        coordinator.pause(for: 0.05)
+
+        #expect(await waitUntil { resumeReason != nil })
+        #expect(resumeReason == .automatic)
     }
 
     @Test @MainActor
