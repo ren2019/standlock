@@ -39,7 +39,12 @@ struct InstallCIBuildTests {
         }
 
         func packageWithCICommand() throws -> Result {
-            try Self.run("/usr/bin/ditto", arguments: [
+            let attribute = try Self.run("/usr/bin/xattr", arguments: [
+                "-w", "com.yagizdokumaci.standlock.test.fixture", "metadata",
+                exportedApp.appendingPathComponent("Contents/MacOS/StandLock").path,
+            ])
+            try #require(attribute.status == 0)
+            return try Self.run("/usr/bin/ditto", arguments: [
                 "-c", "-k", "--keepParent", "--rsrc", "--sequesterRsrc", exportedApp.path, archive.path,
             ])
         }
@@ -180,7 +185,7 @@ struct InstallCIBuildTests {
         let package = try fixture.packageWithCICommand()
         #expect(package.status == 0)
         let listing = try Fixture.run("/usr/bin/zipinfo", arguments: ["-1", fixture.archive.path])
-        #expect(listing.output.contains("__MACOSX/"))
+        #expect(listing.output.contains("__MACOSX/StandLock.app/Contents/MacOS/._StandLock"))
 
         let installed = try fixture.install()
         #expect(installed.status == 0, Comment(rawValue: installed.output))
