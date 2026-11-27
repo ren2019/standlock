@@ -1889,7 +1889,7 @@ struct BreakCoordinatorTests {
         var scheduled: [Date] = []
         let listener = Task {
             for await event in coordinator.events {
-                if case .nextBreakScheduled(let date) = event { scheduled.append(date) }
+                if case .nextBreakScheduled(let date, _) = event { scheduled.append(date) }
             }
         }
 
@@ -2305,23 +2305,24 @@ struct BreakCoordinatorPostponeTests {
         coordinator.postponeActiveBreak()
 
         // Earlier events are buffered; only a date near the return delay is the countdown.
-        var returnDates: [Date] = []
+        var returnEvents: [(date: Date, deferralReason: DeferralReason?)] = []
         let listener = Task {
             for await event in coordinator.events {
-                if case .nextBreakScheduled(let date) = event,
-                   date.timeIntervalSinceNow > 30 { returnDates.append(date) }
+                if case .nextBreakScheduled(let date, let deferralReason) = event,
+                   date.timeIntervalSinceNow > 30 { returnEvents.append((date, deferralReason)) }
             }
         }
 
         try? await Task.sleep(for: .milliseconds(300))
-        #expect(returnDates.isEmpty)
+        #expect(returnEvents.isEmpty)
 
         let clearedAt = Date()
         detector.contextToReturn = .clear
         try? await Task.sleep(for: .milliseconds(300))
-        #expect(returnDates.count == 1)
-        if let date = returnDates.first {
-            #expect(abs(date.timeIntervalSince(clearedAt) - 60) < 1)
+        #expect(returnEvents.count == 1)
+        if let event = returnEvents.first {
+            #expect(abs(event.date.timeIntervalSince(clearedAt) - 60) < 1)
+            #expect(event.deferralReason == .postponed)
         }
 
         coordinator.stop()

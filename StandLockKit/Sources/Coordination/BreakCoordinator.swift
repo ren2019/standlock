@@ -632,7 +632,9 @@ public final class BreakCoordinator {
                 if self.postponedClearSince == nil {
                     // Lets the menu bar count down to the return instead of sitting at 0:00.
                     self.postponedClearSince = since
-                    self.eventContinuation.yield(.nextBreakScheduled(self.postponeReturnDate(since: since)))
+                    self.eventContinuation.yield(.nextBreakScheduled(
+                        self.postponeReturnDate(since: since), deferralReason: .postponed
+                    ))
                 }
                 // A postponed break carried in from before an unclean exit returns here, not
                 // through `scheduleNextBreak`.

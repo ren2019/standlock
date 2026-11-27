@@ -629,8 +629,8 @@ final class AppCoordinator: ObservableObject {
 
     private func handleEvent(_ event: CoordinatorEvent) {
         switch event {
-        case .nextBreakScheduled(let date):
-            deferralReason = nil
+        case .nextBreakScheduled(let date, let deferralReason):
+            self.deferralReason = deferralReason
             // Not always `Date()`: a rebuilt coordinator re-arms the slot it inherited, and
             // re-anchoring on that collapses the interval the ring measures to whatever is left
             // of it -- editing a schedule twenty seconds before a break emptied the menu bar
