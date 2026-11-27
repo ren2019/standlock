@@ -57,7 +57,6 @@ struct MenuSceneTests {
     }
 
     @Test func aSessionBreakNotOnScreenIsWaitingEvenWhileItsReturnCountsDown() {
-        // A postponed break counts down to its return through `.postponed`; that is not focus.
         let onBreak = session(.shortBreak(afterRound: 1))
         #expect(MenuSceneLook(state: .postponed(returnAt: now.addingTimeInterval(600)), pomodoro: onBreak, now: now) == .breakWaiting)
         #expect(MenuSceneLook(state: .deferred(.postponed), pomodoro: onBreak, now: now) == .breakWaiting)
