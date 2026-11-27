@@ -25,7 +25,7 @@ struct TroubleshootingStatusRow: View {
         switch state {
         case .breakActive: "Break in progress"
         case .paused(let until): "Breaks are paused until \(Text(until, style: .time))"
-        case .deferred: "Break waiting"
+        case .deferred, .postponed: "Break waiting"
         case .countingDown: "Breaks are on"
         case .waitingForWork: "Waiting to start work"
         case .noSchedules: "No schedules configured"
@@ -36,7 +36,7 @@ struct TroubleshootingStatusRow: View {
     private func symbol(_ state: NextBreakState) -> String {
         switch state {
         case .paused: "pause.circle"
-        case .deferred: "hourglass"
+        case .deferred, .postponed: "hourglass"
         case .noSchedules, .noActiveSchedules, .waitingForWork: "calendar"
         case .breakActive, .countingDown: "clock"
         }
@@ -45,6 +45,7 @@ struct TroubleshootingStatusRow: View {
     private func text(_ state: NextBreakState) -> Text? {
         switch state {
         case .deferred(let reason): Text(LocalizedStringKey(reason.displayName))
+        case .postponed: Text(LocalizedStringKey(DeferralReason.postponed.displayName))
         case .countingDown(let next): Text("Next break at \(Text(next, style: .time))")
         case .breakActive, .paused, .noSchedules, .noActiveSchedules, .waitingForWork: nil
         }

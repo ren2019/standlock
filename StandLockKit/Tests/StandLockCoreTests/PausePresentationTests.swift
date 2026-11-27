@@ -36,6 +36,21 @@ struct PausePresentationTests {
                 .countdownSeconds == seconds)
     }
 
+    @Test(arguments: [false, true])
+    func deadlineRefreshesVisitEveryCountdownSecond(reduceMotion: Bool) throws {
+        let resumeAt = start.addingTimeInterval(60)
+        let pause = PausePresentation.paused(resumeAt: resumeAt)
+        var now = resumeAt.addingTimeInterval(-10.01)
+
+        for seconds in stride(from: 10, through: 1, by: -1) {
+            let refresh = try #require(pause.nextMenuBarUpdate(after: now))
+            #expect(pause.menuBarDisplay(at: refresh, reduceMotion: reduceMotion)?.countdownSeconds == seconds)
+            now = refresh
+        }
+        #expect(pause.nextMenuBarUpdate(after: now) == resumeAt)
+        #expect(pause.nextMenuBarUpdate(after: resumeAt) == nil)
+    }
+
     @Test
     func countdownAlternatesWithTheWorkingIcon() {
         let resumeAt = start.addingTimeInterval(10)

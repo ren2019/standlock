@@ -442,7 +442,7 @@ public final class BreakCoordinator {
             // A session's break waits for the return instead (S84): time away may cover it.
             let isSessionBreak = currentSource?.schedule == nil && pomodoro != nil
             if let event = currentBreak, let source = currentSource, !isSessionBreak,
-               now >= deadline(for: event) {
+               event.flexibleProgress != nil, now >= deadline(for: event) {
                 completeBreak(event: event, source: source)
                 return
             }
@@ -632,7 +632,9 @@ public final class BreakCoordinator {
                 if self.postponedClearSince == nil {
                     // Lets the menu bar count down to the return instead of sitting at 0:00.
                     self.postponedClearSince = since
-                    self.eventContinuation.yield(.nextBreakScheduled(self.postponeReturnDate(since: since)))
+                    self.eventContinuation.yield(.nextBreakScheduled(
+                        self.postponeReturnDate(since: since), deferralReason: .postponed
+                    ))
                 }
                 // A postponed break carried in from before an unclean exit returns here, not
                 // through `scheduleNextBreak`.

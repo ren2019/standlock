@@ -26,6 +26,23 @@ public enum PausePresentation: Equatable, Sendable {
         return nil
     }
 
+    public func nextMenuBarUpdate(after now: Date) -> Date? {
+        switch self {
+        case .paused(let resumeAt):
+            guard resumeAt > now else { return nil }
+            let countdownStart = resumeAt.addingTimeInterval(-Self.cueDuration)
+            guard now >= countdownStart else { return countdownStart }
+            let remaining = resumeAt.timeIntervalSince(now)
+            return resumeAt.addingTimeInterval(-max(0, ceil(remaining) - 1))
+        case .expired(let cueUntil):
+            guard cueUntil > now else { return nil }
+            let cueStart = cueUntil.addingTimeInterval(-Self.cueDuration)
+            guard now >= cueStart else { return cueStart }
+            let elapsed = now.timeIntervalSince(cueStart)
+            return min(cueUntil, cueStart.addingTimeInterval(floor(elapsed) + 1))
+        }
+    }
+
     public func menuBarDisplay(at now: Date, reduceMotion: Bool) -> MenuBarDisplay? {
         switch self {
         case .paused(let resumeAt):

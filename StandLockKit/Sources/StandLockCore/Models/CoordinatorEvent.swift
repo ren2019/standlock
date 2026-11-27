@@ -1,7 +1,7 @@
 import Foundation
 
 public enum CoordinatorEvent: Sendable {
-    case nextBreakScheduled(Date)
+    case nextBreakScheduled(Date, deferralReason: DeferralReason? = nil)
     case scheduleIdle
     case breakStarted(BreakEvent)
     case breakCompleted(BreakEvent)

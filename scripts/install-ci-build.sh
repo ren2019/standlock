@@ -71,8 +71,15 @@ trap cleanup EXIT
 if ! ARCHIVE_LIST=$(zipinfo -1 "$ZIP" 2>/dev/null); then
   fail "not a readable zip: $ZIP"
 fi
-ARCHIVE_ROOTS=$(printf '%s\n' "$ARCHIVE_LIST" | awk -F/ 'NF && $1 != "" {print $1}' | sort -u)
-[ "$ARCHIVE_ROOTS" = "StandLock.app" ] || fail "zip must contain exactly one top-level StandLock.app"
+ARCHIVE_ROOTS=$(printf '%s\n' "$ARCHIVE_LIST" | awk -F/ 'NF && $1 != "" {print $1}' | LC_ALL=C sort -u)
+case "$ARCHIVE_ROOTS" in
+  StandLock.app) ;;
+  $'StandLock.app\n__MACOSX')
+    METADATA_ROOTS=$(printf '%s\n' "$ARCHIVE_LIST" | awk -F/ '$1 == "__MACOSX" && $2 != "" {print $2}' | sort -u)
+    [ "$METADATA_ROOTS" = "StandLock.app" ] || fail "zip must contain exactly one top-level StandLock.app"
+    ;;
+  *) fail "zip must contain exactly one top-level StandLock.app" ;;
+esac
 
 EXTRACT_DIR="$LOCAL_TMP/extracted"
 mkdir -p "$EXTRACT_DIR"
@@ -104,7 +111,7 @@ BACKUP_DIR=${BACKUP_DIR:-"$REPO_ROOT/work/backup"}
 mkdir -p "$BACKUP_DIR"
 if ! REMOTE_INFO=$(remote_bash <<'REMOTE_INFO_EOF'
 set -euo pipefail
-APP=/Applications/StandLock.app
+APP=${STANDLOCK_INSTALL_APP:-/Applications/StandLock.app}
 INFO="$APP/Contents/Info.plist"
 [ -d "$APP" ] && [ -f "$INFO" ]
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO" 2>/dev/null)
@@ -131,7 +138,8 @@ if [ -e "$BACKUP_PATH" ]; then
 else
   if ! remote_bash "$REMOTE_TMP" <<'REMOTE_BACKUP_EOF'
 set -euo pipefail
-ditto -c -k --keepParent --rsrc --sequesterRsrc /Applications/StandLock.app "$1/StandLock-backup.zip"
+APP=${STANDLOCK_INSTALL_APP:-/Applications/StandLock.app}
+ditto -c -k --keepParent --rsrc --sequesterRsrc "$APP" "$1/StandLock-backup.zip"
 REMOTE_BACKUP_EOF
   then
     fail "could not create the remote backup"
@@ -162,8 +170,9 @@ EXPECTED_TEAM_ID=$5
 REMOTE_TMP=$6
 EXPECTED_ZIP_SHA256=$7
 EXPECTED_EXECUTABLE_SHA256=$8
-APP=/Applications/StandLock.app
-PROCESS_PATTERN='^/Applications/StandLock[.]app/Contents/MacOS/StandLock$'
+APP=${STANDLOCK_INSTALL_APP:-/Applications/StandLock.app}
+ESCAPED_APP=$(printf '%s' "$APP" | sed 's/[^A-Za-z0-9]/\\&/g')
+PROCESS_PATTERN="^$ESCAPED_APP/Contents/MacOS/StandLock$"
 PLIST_BUDDY=/usr/libexec/PlistBuddy
 
 fail() {
@@ -202,7 +211,8 @@ mkdir -p "$UNPACK_DIR"
 ditto -x -k "$REMOTE_TMP/StandLock.zip" "$UNPACK_DIR"
 verify_app "$UNPACKED_APP"
 
-STAGING=$(mktemp -d /Applications/.standlock-install.XXXXXX)
+STAGING_ROOT=${STANDLOCK_INSTALL_STAGING_ROOT:-/Applications}
+STAGING=$(mktemp -d "$STAGING_ROOT/.standlock-install.XXXXXX")
 STAGED_APP="$STAGING/StandLock.app"
 PREVIOUS_APP="$STAGING/Previous.app"
 INSTALL_SUCCEEDED=false
@@ -259,6 +269,10 @@ for _ in {1..100}; do
   sleep 0.1
 done
 pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 || fail "StandLock did not start"
+for _ in {1..20}; do
+  pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 || fail "StandLock exited during launch"
+  sleep 0.1
+done
 INFO="$APP/Contents/Info.plist"
 INSTALLED_BUNDLE_ID=$("$PLIST_BUDDY" -c 'Print :CFBundleIdentifier' "$INFO")
 INSTALLED_VERSION=$("$PLIST_BUDDY" -c 'Print :CFBundleShortVersionString' "$INFO")

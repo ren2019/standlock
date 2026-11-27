@@ -629,8 +629,8 @@ final class AppCoordinator: ObservableObject {
 
     private func handleEvent(_ event: CoordinatorEvent) {
         switch event {
-        case .nextBreakScheduled(let date):
-            deferralReason = nil
+        case .nextBreakScheduled(let date, let deferralReason):
+            self.deferralReason = deferralReason
             // Not always `Date()`: a rebuilt coordinator re-arms the slot it inherited, and
             // re-anchoring on that collapses the interval the ring measures to whatever is left
             // of it -- editing a schedule twenty seconds before a break emptied the menu bar
@@ -668,6 +668,12 @@ final class AppCoordinator: ObservableObject {
         case .breakDeferred(let reason, _):
             if isBreakActive { clearActiveBreakState() }
             deferralReason = reason
+            if reason == .postponed {
+                nextBreakTime = nil
+                breakScheduledAt = nil
+                breakProgress = 0
+                updateMenuBarTimer()
+            }
 
         case .schedulePaused(let until):
             pausePresentation = .paused(resumeAt: until)
@@ -685,6 +691,8 @@ final class AppCoordinator: ObservableObject {
                     pausePresentation = .expired(
                         cueUntil: Date().addingTimeInterval(PausePresentation.cueDuration)
                     )
+                    progressTimer?.cancel()
+                    startProgressTimer()
                 }
             }
             UserDefaults.standard.removeObject(forKey: Self.pauseDeadlineKey)
@@ -857,12 +865,14 @@ final class AppCoordinator: ObservableObject {
     private func startProgressTimer() {
         progressTimer = Task {
             while !Task.isCancelled {
+                let now = Date()
                 rolloverDailyStatsIfNeeded()
                 recalculateProgress()
-                updateMenuBarTimer()
+                updateMenuBarTimer(at: now)
 
-                let interval: Duration = if pausePresentation != nil {
-                    .seconds(1)
+                let pauseUpdateInterval = pausePresentation?.nextMenuBarUpdate(after: now)?.timeIntervalSinceNow
+                let interval: Duration = if let pauseUpdateInterval {
+                    .seconds(max(0.001, pauseUpdateInterval))
                 } else if let remaining = nextBreakTime?.timeIntervalSinceNow,
                           menuBarTimerText != nil, remaining < 60 {
                     .seconds(1)
@@ -886,9 +896,8 @@ final class AppCoordinator: ObservableObject {
         }
     }
 
-    private func updateMenuBarTimer() {
+    private func updateMenuBarTimer(at now: Date = Date()) {
         refreshQuickActions()
-        let now = Date()
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if let presentation = pausePresentation, !presentation.isPaused,
            presentation.menuBarDisplay(at: now, reduceMotion: reduceMotion) == nil {

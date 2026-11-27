@@ -29,7 +29,7 @@ final class EventLog {
     }
 
     var nextBreaks: [Date] {
-        events.compactMap { if case .nextBreakScheduled(let d) = $0 { d } else { nil } }
+        events.compactMap { if case .nextBreakScheduled(let d, _) = $0 { d } else { nil } }
     }
 }
 
