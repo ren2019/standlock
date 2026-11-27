@@ -39,12 +39,16 @@ private struct SchedulePage: View {
     }
 
     private var isDirty: Bool { draft.hasChanges(from: baseline) }
+    private var workMode: WorkScheduleMode { coordinator.preferences.workScheduleMode }
 
     var body: some View {
         VStack(spacing: 0) {
             SettingsPageLayout(title: title, accessory: { enableToggle }) {
                 if let schedule {
-                    ScheduleStatusView(schedule: schedule)
+                    ScheduleStatusView(
+                        schedule: schedule,
+                        status: FixedScheduleStatus(schedule: schedule, mode: workMode)
+                    )
                 } else if coordinator.schedules.isEmpty {
                     emptyNote
                 }
@@ -129,7 +133,7 @@ private struct SchedulePage: View {
             ))
             .labelsHidden()
             .toggleStyle(.switch)
-            .tint(.green)
+            .tint(workMode == .flexible ? .gray : .green)
             .controlSize(.small)
         }
     }

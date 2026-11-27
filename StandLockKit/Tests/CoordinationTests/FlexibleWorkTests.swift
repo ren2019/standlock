@@ -12,7 +12,9 @@ struct FlexibleWorkTests {
         let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
         defer { coordinator.stop() }
         let interval: TimeInterval = 40 * 60
-        coordinator.start(with: [], preferences: AppPreferences(workScheduleMode: .flexible))
+        let fixed = makeSchedule()
+        scheduler.nextBreakTimes[fixed.id] = Date() + 15 * 60
+        coordinator.start(with: [fixed], preferences: AppPreferences(workScheduleMode: .flexible))
         let first = Date()
         #expect(coordinator.isWaitingForWork)
         coordinator.observeWorkInput(lastInputAt: first, now: first)

@@ -1140,6 +1140,22 @@
         }
       }
     },
+    "Inactive" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etkin değil"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未生效"
+          }
+        }
+      }
+    },
     "Language and appearance" : {
       "localizations" : {
         "tr" : {
@@ -2755,6 +2771,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此文件由更新版本的 StandLock 创建。请更新 StandLock 后再导入。"
+          }
+        }
+      }
+    },
+    "This schedule is inactive in Flexible work." : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bu program esnek çalışma modunda etkin değil."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此日程在不定时工作模式下不生效。"
           }
         }
       }
