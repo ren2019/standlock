@@ -79,7 +79,6 @@ jobs:
             ARCHS=arm64 \
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            OTHER_SWIFT_FLAGS='-Xfrontend -disable-cmo' \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Package the Release app
@@ -146,7 +145,6 @@ jobs:
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             ARCHS=arm64 \
-            OTHER_SWIFT_FLAGS='-Xfrontend -disable-cmo' \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             CODE_SIGN_STYLE="Manual" \
             DEVELOPMENT_TEAM="$TEAM_ID"
