@@ -691,6 +691,8 @@ final class AppCoordinator: ObservableObject {
                     pausePresentation = .expired(
                         cueUntil: Date().addingTimeInterval(PausePresentation.cueDuration)
                     )
+                    progressTimer?.cancel()
+                    startProgressTimer()
                 }
             }
             UserDefaults.standard.removeObject(forKey: Self.pauseDeadlineKey)
