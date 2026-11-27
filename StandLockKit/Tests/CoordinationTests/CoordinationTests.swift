@@ -1348,7 +1348,7 @@ struct BreakCoordinatorTests {
         (flexible: true, suspension: Suspension.sleep),
         (flexible: true, suspension: Suspension.lock),
     ]) @MainActor
-    func suspensionAfterDeadlineCompletesScheduledBreakOnce(
+    func suspensionAfterDeadlineSettlesScheduledBreakByMode(
         flexible: Bool, suspension: Suspension
     ) async throws {
         let scheduler = MockScheduler()
@@ -1372,6 +1372,9 @@ struct BreakCoordinatorTests {
             listener.cancel()
         }
 
+        let schedule = makeSchedule(breakDuration: 10, repetitionRule: RepetitionRule(
+            shortBreakCount: 1, shortBreakDuration: 10, longBreakDuration: 30
+        ))
         if flexible {
             coordinator.start(with: [], preferences: AppPreferences(
                 workScheduleMode: .flexible,
@@ -1379,7 +1382,7 @@ struct BreakCoordinatorTests {
             ))
             coordinator.startWork(now: Date() - 1800)
         } else {
-            coordinator.start(with: [makeSchedule(breakDuration: 10)], preferences: AppPreferences())
+            coordinator.start(with: [schedule], preferences: AppPreferences(waitForBreakReturn: true))
         }
         try #require(await waitUntil { locker.isShowing })
 
@@ -1401,10 +1404,17 @@ struct BreakCoordinatorTests {
         suspend(deadline)
         suspend(deadline.addingTimeInterval(1))
 
-        try #require(await waitUntil { completions == 1 && statistics?.breaksCompleted == 1 })
-        #expect(skips == 0)
-        #expect(statistics?.breaksSkipped == 0)
+        let expectedCompletions = flexible ? 1 : 0
+        let expectedSkips = flexible ? 0 : 1
+        try #require(await waitUntil {
+            completions == expectedCompletions && skips == expectedSkips
+                && statistics?.breaksCompleted == expectedCompletions
+                && statistics?.breaksSkipped == expectedSkips
+        })
         #expect(!locker.isShowing)
+        if !flexible {
+            #expect(coordinator.captureEnforcementState().repetitionIndices[schedule.id] == 0)
+        }
     }
 
     @Test(arguments: [Suspension.sleep, .lock]) @MainActor

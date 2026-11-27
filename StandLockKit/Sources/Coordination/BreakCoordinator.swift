@@ -442,7 +442,7 @@ public final class BreakCoordinator {
             // A session's break waits for the return instead (S84): time away may cover it.
             let isSessionBreak = currentSource?.schedule == nil && pomodoro != nil
             if let event = currentBreak, let source = currentSource, !isSessionBreak,
-               now >= deadline(for: event) {
+               source.schedule?.id == FlexibleWorkSettings.scheduleID, now >= deadline(for: event) {
                 completeBreak(event: event, source: source)
                 return
             }
