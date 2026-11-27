@@ -29,7 +29,7 @@ final class EventLog {
     }
 
     var nextBreaks: [Date] {
-        events.compactMap { if case .nextBreakScheduled(let d) = $0 { d } else { nil } }
+        events.compactMap { if case .nextBreakScheduled(let d, _) = $0 { d } else { nil } }
     }
 }
 
@@ -62,6 +62,7 @@ struct ExternalBreakTests {
         coordinator.startExternalBreak(ExternalBreak(duration: 120, level: .firm, chip: chip))
         #expect(await waitUntil { locker.isShowing })
         #expect(locker.lastPomodoroChip == chip)
+        #expect(locker.lastIsScheduledBreak == false)
         #expect(locker.lastLevel == .firm)
         #expect(locker.lastDuration == TimeInterval(120))
         #expect(locker.lastEscalationTier == 0)
@@ -97,6 +98,7 @@ struct ExternalBreakTests {
         defer { coordinator.stop() }
         coordinator.startExternalBreak(ExternalBreak(duration: 60, level: .gentle, chip: nil))
         #expect(await waitUntil { locker.isShowing })
+        #expect(locker.lastIsScheduledBreak == false)
         coordinator.skipActiveBreak()
         #expect(await waitUntil { log.skipped == 1 })
         #expect(log.completed == 0)
@@ -306,7 +308,9 @@ struct PomodoroSessionCoordinationTests {
         coordinator.pause(for: 3600)
         startEndingFocus(coordinator)
         #expect(await waitUntil { locker.isShowing })
-        #expect(log.events.contains { if case .scheduleResumed = $0 { true } else { false } })
+        #expect(await waitUntil {
+            log.events.contains { if case .scheduleResumed(.manual) = $0 { true } else { false } }
+        })
     }
 
     @Test
@@ -911,8 +915,7 @@ struct PomodoroFocusCoverTests {
         defer { coordinator.stop() }
         restoreOpenPhaseEndingNow(coordinator, .shortBreak(afterRound: 1))
         #expect(await waitUntil { locker.isShowing })
-        #expect(log.completed == 1)
-        #expect(log.stats?.currentStreak == 4)
+        #expect(await waitUntil { log.completed == 1 && log.stats?.currentStreak == 4 })
         #expect(locker.lastPomodoroChip == PomodoroChip(round: 2, rounds: 2, isLong: false, isFocus: true))
         try? await Task.sleep(for: .milliseconds(100))
         #expect(log.completed == 1)

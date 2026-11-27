@@ -308,18 +308,18 @@
         }
       }
     },
-    "Click Skip this break. With Progressive Enforcement on, later breaks may first ask you to wait, play a short game or type a sentence." : {
+    "For scheduled breaks, click Continue Working. With Progressive Enforcement on, later breaks may first ask you to wait, play a short game or type a sentence." : {
       "localizations" : {
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bu molayı atla düğmesine tıklayın. Kademeli Zorlama açıksa sonraki molalar önce beklemenizi, kısa bir oyun oynamanızı veya bir cümle yazmanızı isteyebilir."
+            "value" : "Planlanmış molalarda Çalışmaya Devam Et düğmesine tıklayın. Kademeli Zorlama açıksa sonraki molalar önce beklemenizi, kısa bir oyun oynamanızı veya bir cümle yazmanızı isteyebilir."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "点击“跳过这次休息”。开启“逐级加强”后，之后的休息可能会先要求你等待、玩个小游戏或输入一句话。"
+            "value" : "在计划休息期间，点击“继续工作”。开启“逐级加强”后，之后的休息可能会先要求你等待、玩个小游戏或输入一句话。"
           }
         }
       }
@@ -592,6 +592,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已开启"
+          }
+        }
+      }
+    },
+    "Ending early counts as a skipped break." : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erken bitirilen mola atlanmış sayılır."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前结束将计为一次跳过。"
           }
         }
       }
@@ -1012,6 +1028,22 @@
         }
       }
     },
+    "If you have been away from the keyboard and mouse for at least one minute when a scheduled break starts, that time counts toward the break." : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planlı mola başladığında klavye ve fareden en az bir dakikadır uzaktaysanız bu süre molaya sayılır."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定时休息开始时，如果你已连续至少一分钟没有使用键盘和鼠标，这段时间就计入本轮休息。"
+          }
+        }
+      }
+    },
     "Import" : {
       "localizations" : {
         "tr" : {
@@ -1072,6 +1104,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "导入…"
+          }
+        }
+      }
+    },
+    "Includes %@ before the break screen" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mola ekranı açılmadan önceki %@ dahil"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "含全屏前已休 %@"
           }
         }
       }
@@ -3144,6 +3192,70 @@
         }
       }
     },
+    "12 hours" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12 saat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12 小时"
+          }
+        }
+      }
+    },
+    "24 hours" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 saat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 小时"
+          }
+        }
+      }
+    },
+    "4 hours" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4 saat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4 小时"
+          }
+        }
+      }
+    },
+    "8 hours" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "8 saat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "8 小时"
+          }
+        }
+      }
+    },
     "2 min" : {
       "localizations" : {
         "tr" : {
@@ -3654,6 +3766,22 @@
         }
       }
     },
+    "Break complete" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mola tamamlandı"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本轮休息已达标"
+          }
+        }
+      }
+    },
     "Break Screen" : {
       "localizations" : {
         "tr" : {
@@ -4132,6 +4260,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "继续"
+          }
+        }
+      }
+    },
+    "Continue Working" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Çalışmaya Devam Et"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续工作"
           }
         }
       }
@@ -6811,6 +6955,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "早就猜到了"
+          }
+        }
+      }
+    },
+    "Remaining break time" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kalan mola süresi"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剩余休息时间"
+          }
+        }
+      }
+    },
+    "Rested %@ / %@" : {
+      "localizations" : {
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dinlenilen süre %@ / %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已休 %@ / %@"
           }
         }
       }
@@ -9801,18 +9977,18 @@
         }
       }
     },
-    "Click Skip." : {
+    "Click Continue Working." : {
       "localizations" : {
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Atla'ya tıkla."
+            "value" : "Çalışmaya Devam Et düğmesine tıkla."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "点击“跳过”。"
+            "value" : "点击“继续工作”。"
           }
         }
       }

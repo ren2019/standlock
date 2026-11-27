@@ -7,6 +7,8 @@ struct ManuscriptBreakView: View {
     let totalDuration: TimeInterval
     let endDate: Date
     let waitsForReturn: Bool
+    let isScheduledBreak: Bool
+    let flexibleProgress: FlexibleBreakProgress?
     let exercise: Exercise?
     let preferences: AppPreferences
     let statistics: BreakStatistics
@@ -32,7 +34,8 @@ struct ManuscriptBreakView: View {
          escalationTier: Int = 0,
          nextIntervalLabel: String? = nil,
          pomodoroChip: PomodoroChip? = nil,
-         canPostpone: Bool, waitsForReturn: Bool,
+         canPostpone: Bool, waitsForReturn: Bool, isScheduledBreak: Bool,
+         flexibleProgress: FlexibleBreakProgress?,
          onCountdownEnded: @escaping () -> Void,
          onSkip: @escaping () -> Void,
          onPostpone: @escaping () -> Void,
@@ -43,6 +46,8 @@ struct ManuscriptBreakView: View {
         self.totalDuration = totalDuration
         self.endDate = endDate
         self.waitsForReturn = waitsForReturn
+        self.isScheduledBreak = isScheduledBreak
+        self.flexibleProgress = flexibleProgress
         self.onCountdownEnded = onCountdownEnded
         self.exercise = exercise
         self.preferences = preferences
@@ -83,7 +88,8 @@ struct ManuscriptBreakView: View {
                     Spacer()
 
                     VStack(spacing: compact ? 16 : 24) {
-                        let isAwaitingReturn = waitsForReturn && remainingSeconds <= 0
+                        let isCountingDown = remainingSeconds > 0
+                        let isAwaitingReturn = waitsForReturn && !isCountingDown
                         HStack(spacing: 10) {
                             LevelPill(level: level, palette: palette)
                             if let pomodoroChip {
@@ -98,7 +104,8 @@ struct ManuscriptBreakView: View {
                             totalDuration: totalDuration,
                             palette: palette,
                             viewportHeight: geometry.size.height,
-                            reduceMotion: reduceMotion
+                            reduceMotion: reduceMotion,
+                            flexibleProgress: flexibleProgress
                         )
                         if !message.isEmpty {
                             // Verbatim: user input must not become a string catalog lookup.
@@ -118,7 +125,7 @@ struct ManuscriptBreakView: View {
                                 .tint(palette.accent)
                                 .keyboardShortcut(.defaultAction)
                         }
-                        if !isAwaitingReturn || level == .strict
+                        if isCountingDown || (!isScheduledBreak && !isAwaitingReturn) || level == .strict
                             || level.dailySkipLimitReached(preferences: preferences, skipsToday: statistics.breaksSkipped, isFocusCover: isFocusCover) {
                             ActionArea(
                                 tier: enforcementTier, palette: palette,
@@ -126,6 +133,7 @@ struct ManuscriptBreakView: View {
                                 disciplineLevel: level,
                                 escalationTier: escalationTierIndex,
                                 isFocusCover: isFocusCover,
+                                showsContinueWorking: isScheduledBreak && isCountingDown,
                                 onDismiss: onSkip,
                                 onEscape: onEscape
                             )

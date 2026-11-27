@@ -1,7 +1,7 @@
 import Foundation
 
 public enum CoordinatorEvent: Sendable {
-    case nextBreakScheduled(Date)
+    case nextBreakScheduled(Date, deferralReason: DeferralReason? = nil)
     case scheduleIdle
     case breakStarted(BreakEvent)
     case breakCompleted(BreakEvent)
@@ -9,7 +9,7 @@ public enum CoordinatorEvent: Sendable {
     case breakEscaped(BreakEvent)
     case breakDeferred(DeferralReason, nextAttempt: Date)
     case schedulePaused(until: Date)
-    case scheduleResumed
+    case scheduleResumed(ScheduleResumeReason)
     case statisticsUpdated(BreakStatistics)
     case breakCue(BreakCue)
     /// A session phase began or its end moved; nil when the session ended.

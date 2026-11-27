@@ -7,13 +7,15 @@ public struct BreakEvent: Sendable, Identifiable {
     public let level: DisciplineLevel
     /// Nil for a break no schedule owns: a Pomodoro break.
     public let scheduleId: UUID?
+    public let flexibleProgress: FlexibleBreakProgress?
 
     public init(
         id: UUID = UUID(), scheduledAt: Date, duration: TimeInterval,
-        level: DisciplineLevel, scheduleId: UUID?
+        level: DisciplineLevel, scheduleId: UUID?, flexibleProgress: FlexibleBreakProgress? = nil
     ) {
         self.id = id; self.scheduledAt = scheduledAt; self.duration = duration
         self.level = level; self.scheduleId = scheduleId
+        self.flexibleProgress = flexibleProgress
     }
 }
 

@@ -11,6 +11,7 @@ struct ActionArea: View {
     let disciplineLevel: DisciplineLevel
     var escalationTier: Int = 0
     var isFocusCover = false
+    let showsContinueWorking: Bool
     let onDismiss: () -> Void
     var onEscape: (() -> Void)?
 
@@ -74,7 +75,10 @@ struct ActionArea: View {
         switch tier.dismissMechanism {
         case .button:
             DodgingWrapper(isActive: escalationTier >= 1) {
-                ButtonDismissView(palette: palette, isFocusCover: isFocusCover, onDismiss: onDismiss)
+                ButtonDismissView(
+                    palette: palette, isFocusCover: isFocusCover,
+                    showsContinueWorking: showsContinueWorking, onDismiss: onDismiss
+                )
             }
         case .typePhrase(let phrase, let requiresConfirmation):
             // A phrase the user chose themselves is shown exactly as stored. Only the
@@ -1394,11 +1398,27 @@ private func skipLabel(isFocusCover: Bool) -> Text {
 private struct ButtonDismissView: View {
     let palette: BreakPalette
     let isFocusCover: Bool
+    let showsContinueWorking: Bool
     let onDismiss: () -> Void
 
     @State private var isPressed = false
 
     var body: some View {
+        if showsContinueWorking {
+            VStack(spacing: 6) {
+                Button("Continue Working", action: onDismiss)
+                    .buttonStyle(.borderedProminent)
+                    .tint(palette.accent)
+                Text("Ending early counts as a skipped break.")
+                    .font(BreakTypography.label(size: 12))
+                    .foregroundStyle(palette.inkSoft)
+            }
+        } else {
+            skipButton
+        }
+    }
+
+    private var skipButton: some View {
         Button(action: onDismiss) {
             VStack(spacing: 4) {
                 skipLabel(isFocusCover: isFocusCover)

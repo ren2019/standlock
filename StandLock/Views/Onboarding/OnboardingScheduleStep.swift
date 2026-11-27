@@ -20,7 +20,7 @@ struct OnboardingScheduleStep: View {
             }
 
             SettingsSection("How you get out of a break") {
-                levelRow(.gentle, symbol: "hand.raised", detail: "Click Skip.")
+                levelRow(.gentle, symbol: "hand.raised", detail: "Click Continue Working.")
                 SettingsRowDivider()
                 levelRow(.firm, symbol: "timer", detail: "Wait, then type a phrase.")
                 SettingsRowDivider()

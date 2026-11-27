@@ -109,6 +109,8 @@ struct MenuBarStatusView: View {
     private var subtitle: some View {
         if case .deferred(let reason) = state {
             Text(LocalizedStringKey(reason.displayName))
+        } else if case .postponed = state {
+            Text(LocalizedStringKey(DeferralReason.postponed.displayName))
         } else if let pomodoro {
             HStack(spacing: 4) {
                 Text("Pomodoro")
@@ -150,7 +152,7 @@ struct MenuBarStatusView: View {
     @ViewBuilder
     private func stateTrailing(now: Date) -> some View {
         switch state {
-        case .countingDown(let nextBreak):
+        case .countingDown(let nextBreak), .postponed(let nextBreak):
             trailingColumn(label: "Next break") {
                 Text(formatCountdown(secondsRemaining: breakSecondsRemaining(until: nextBreak, now: now)))
             }

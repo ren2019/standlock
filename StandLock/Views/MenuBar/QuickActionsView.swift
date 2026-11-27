@@ -61,6 +61,16 @@ struct QuickActionsView: View {
 
     private var inSession: Bool { coordinator.pomodoroStatus != nil }
 
+    private let pauseDurations: [(title: LocalizedStringResource, seconds: TimeInterval)] = [
+        ("30 minutes", 30 * 60),
+        ("1 hour", 60 * 60),
+        ("2 hours", 2 * 60 * 60),
+        ("4 hours", 4 * 60 * 60),
+        ("8 hours", 8 * 60 * 60),
+        ("12 hours", 12 * 60 * 60),
+        ("24 hours", 24 * 60 * 60),
+    ]
+
     private func iconButton(_ title: LocalizedStringKey, symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
@@ -76,17 +86,15 @@ struct QuickActionsView: View {
         let handler = PauseMenuHandler(coordinator: coordinator)
         let menu = NSMenu()
 
-        let item30 = NSMenuItem(title: languageStore.string("30 minutes"), action: #selector(PauseMenuHandler.pause30), keyEquivalent: "")
-        item30.target = handler
-        menu.addItem(item30)
-
-        let item60 = NSMenuItem(title: languageStore.string("1 hour"), action: #selector(PauseMenuHandler.pause60), keyEquivalent: "")
-        item60.target = handler
-        menu.addItem(item60)
-
-        let item120 = NSMenuItem(title: languageStore.string("2 hours"), action: #selector(PauseMenuHandler.pause120), keyEquivalent: "")
-        item120.target = handler
-        menu.addItem(item120)
+        for duration in pauseDurations {
+            let item = NSMenuItem(
+                title: languageStore.string(duration.title),
+                action: #selector(PauseMenuHandler.pause(_:)), keyEquivalent: ""
+            )
+            item.target = handler
+            item.representedObject = duration.seconds
+            menu.addItem(item)
+        }
 
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
@@ -100,7 +108,8 @@ private final class PauseMenuHandler: NSObject {
         self.coordinator = coordinator
     }
 
-    @objc func pause30() { coordinator.pauseSchedule(for: 30 * 60) }
-    @objc func pause60() { coordinator.pauseSchedule(for: 60 * 60) }
-    @objc func pause120() { coordinator.pauseSchedule(for: 2 * 60 * 60) }
+    @objc func pause(_ sender: NSMenuItem) {
+        guard let duration = sender.representedObject as? TimeInterval else { return }
+        coordinator.pauseSchedule(for: duration)
+    }
 }

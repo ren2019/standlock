@@ -55,7 +55,13 @@ private struct FlexibleWorkForm: View {
     var body: some View {
         Group {
             ScheduleFormView(
-                draft: Binding(get: { draft }, set: updateDraft),
+                draft: Binding(
+                    get: { draft },
+                    set: { value in
+                        draft = value
+                        onSave(settings)
+                    }
+                ),
                 schedule: saved.schedule,
                 rhythmOnly: true
             )
@@ -90,10 +96,5 @@ private struct FlexibleWorkForm: View {
             cap = values.dailyBreakCap ?? 5
             hasCap = values.dailyBreakCap != nil
         }
-    }
-
-    private func updateDraft(_ value: ScheduleDraft) {
-        draft = value
-        onSave(settings)
     }
 }

@@ -41,6 +41,8 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
     var lastNextIntervalLabel: String?
     var lastCanPostpone: Bool?
     var lastWaitsForReturn: Bool?
+    var lastIsScheduledBreak: Bool?
+    var lastFlexibleProgress: FlexibleBreakProgress?
     var lastPomodoroChip: PomodoroChip?
     var lastShownAt: Date?
     var showCount = 0
@@ -50,7 +52,8 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
                      exercise: Exercise?, preferences: AppPreferences,
                      statistics: BreakStatistics, escalationTier: Int,
                      nextIntervalLabel: String?, canPostpone: Bool,
-                     pomodoroChip: PomodoroChip?, waitsForReturn: Bool) {
+                     pomodoroChip: PomodoroChip?, waitsForReturn: Bool, isScheduledBreak: Bool,
+                     flexibleProgress: FlexibleBreakProgress?) {
         showOverlayCalled = true
         showCount += 1
         lastShownAt = Date()
@@ -62,6 +65,8 @@ final class MockLocker: LockPresenting, @unchecked Sendable {
         lastNextIntervalLabel = nextIntervalLabel
         lastCanPostpone = canPostpone
         lastWaitsForReturn = waitsForReturn
+        lastIsScheduledBreak = isScheduledBreak
+        lastFlexibleProgress = flexibleProgress
         isShowing = true
     }
 
@@ -351,11 +356,11 @@ struct BreakCoordinatorTests {
         let schedule = makeSchedule()
 
         var pauseEvent: CoordinatorEvent?
-        var resumeEvent: CoordinatorEvent?
+        var resumeReason: ScheduleResumeReason?
         let listener = Task {
             for await event in coordinator.events {
                 if case .schedulePaused = event { pauseEvent = event }
-                if case .scheduleResumed = event { resumeEvent = event }
+                if case .scheduleResumed(let reason) = event { resumeReason = reason }
             }
         }
 
@@ -370,10 +375,32 @@ struct BreakCoordinatorTests {
         coordinator.resume()
         try? await Task.sleep(for: .milliseconds(100))
 
-        #expect(resumeEvent != nil)
+        #expect(resumeReason == .manual)
 
         coordinator.stop()
         listener.cancel()
+    }
+
+    @Test @MainActor
+    func automaticPauseTimeoutEmitsAutomaticResume() async {
+        let scheduler = MockScheduler()
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
+        defer { coordinator.stop() }
+        coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
+
+        var resumeReason: ScheduleResumeReason?
+        let listener = Task {
+            for await event in coordinator.events {
+                if case .scheduleResumed(let reason) = event { resumeReason = reason }
+            }
+        }
+        defer { listener.cancel() }
+
+        coordinator.pause(for: 0.05)
+
+        #expect(await waitUntil { resumeReason != nil })
+        #expect(resumeReason == .automatic)
     }
 
     @Test @MainActor
@@ -434,40 +461,61 @@ struct BreakCoordinatorTests {
         listener.cancel()
     }
 
-    @Test @MainActor
-    func skipActiveBreakDismissesAndResetsStreak() async {
+    @Test(arguments: [WorkScheduleMode.fixed, .flexible], [false, true]) @MainActor
+    func skippingAnActiveScheduledBreakSettlesOnceAndHonorsTheIntervalSetting(
+        mode: WorkScheduleMode, resetInterval: Bool
+    ) async throws {
+        let interval: TimeInterval = 180
         let scheduler = MockScheduler()
-        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(0.05)
-        let detector = MockDetector()
+        scheduler.nextBreakAfter = { $0.addingTimeInterval(interval) }
         let locker = MockLocker()
-
-        let coordinator = BreakCoordinator(scheduler: scheduler, detector: detector, locker: locker)
-        let schedule = makeSchedule(breakDuration: 5)
-
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: locker)
+        let schedule = makeSchedule(breakInterval: interval)
+        let preferences = AppPreferences(
+            idleDetectionEnabled: false, resetIntervalOnSkip: resetInterval, workScheduleMode: mode,
+            flexibleWork: FlexibleWorkSettings(breakInterval: interval)
+        )
+        let restored = EnforcementState(pendingBreakDates: [schedule.id: Date().addingTimeInterval(0.1)])
+        var started: BreakEvent?
         var skippedEvents: [BreakEvent] = []
         var lastStats: BreakStatistics?
         let listener = Task {
             for await event in coordinator.events {
+                if case .breakStarted(let e) = event { started = e }
                 if case .breakSkipped(let e) = event { skippedEvents.append(e) }
                 if case .statisticsUpdated(let s) = event { lastStats = s }
             }
         }
+        defer {
+            coordinator.stop()
+            listener.cancel()
+        }
 
-        coordinator.start(with: [schedule], preferences: AppPreferences())
-        try? await Task.sleep(for: .milliseconds(300))
+        coordinator.start(with: [schedule], preferences: preferences, restoring: restored)
+        if mode == .flexible {
+            coordinator.startWork(now: Date().addingTimeInterval(-interval + 0.1))
+        }
+        let armedAt = try #require(coordinator.localStatus().nextBreakAt)
+        try #require(await waitUntil { started != nil })
+        let breakStarted = try #require(started)
+        #expect(locker.isShowing)
+        #expect(locker.lastIsScheduledBreak == true)
 
-        #expect(locker.showOverlayCalled)
-
+        let beforeSkip = Date()
         coordinator.skipActiveBreak()
-        try? await Task.sleep(for: .milliseconds(100))
+        coordinator.skipActiveBreak()
+        let afterSkip = Date()
+        let nextBreak = try #require(coordinator.localStatus().nextBreakAt)
+        if resetInterval {
+            #expect((beforeSkip.addingTimeInterval(interval)...afterSkip.addingTimeInterval(interval)).contains(nextBreak))
+        } else {
+            #expect(nextBreak == armedAt.addingTimeInterval(interval))
+        }
 
-        #expect(locker.dismissOverlayCalled)
-        #expect(skippedEvents.count == 1)
-        #expect(lastStats?.breaksSkipped == 1)
+        #expect(!locker.isShowing)
+        #expect(await waitUntil { lastStats?.breaksSkipped == 1 })
+        #expect(skippedEvents.map(\.id) == [breakStarted.id])
         #expect(lastStats?.currentStreak == 0)
-
-        coordinator.stop()
-        listener.cancel()
     }
 
     @Test @MainActor
@@ -1289,78 +1337,181 @@ struct BreakCoordinatorTests {
         listener.cancel()
     }
 
-    @Test @MainActor
-    func systemSleepDuringPauseResumesOnWake() async {
+    enum Suspension {
+        case sleep
+        case lock
+    }
+
+    @Test(arguments: [
+        (flexible: false, suspension: Suspension.sleep),
+        (flexible: false, suspension: Suspension.lock),
+        (flexible: true, suspension: Suspension.sleep),
+        (flexible: true, suspension: Suspension.lock),
+    ]) @MainActor
+    func suspensionAfterDeadlineSettlesScheduledBreakByMode(
+        flexible: Bool, suspension: Suspension
+    ) async throws {
         let scheduler = MockScheduler()
-        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(0.05)
         let detector = MockDetector()
+        detector.contextToReturn = DetectionContext(idleDuration: flexible ? 300 : 0)
         let locker = MockLocker()
-
         let coordinator = BreakCoordinator(scheduler: scheduler, detector: detector, locker: locker)
-        let schedule = makeSchedule()
-
-        var resumeEvent: CoordinatorEvent?
-        var scheduledEvents: [CoordinatorEvent] = []
+        var completions = 0
+        var skips = 0
+        var statistics: BreakStatistics?
         let listener = Task {
             for await event in coordinator.events {
-                if case .scheduleResumed = event { resumeEvent = event }
-                if case .nextBreakScheduled = event { scheduledEvents.append(event) }
+                if case .breakCompleted = event { completions += 1 }
+                if case .breakSkipped = event { skips += 1 }
+                if case .statisticsUpdated(let stats) = event { statistics = stats }
             }
         }
+        defer {
+            coordinator.stop()
+            listener.cancel()
+        }
 
-        coordinator.start(with: [schedule], preferences: AppPreferences())
-        try? await Task.sleep(for: .milliseconds(50))
+        let schedule = makeSchedule(breakDuration: 10, repetitionRule: RepetitionRule(
+            shortBreakCount: 1, shortBreakDuration: 10, longBreakDuration: 30
+        ))
+        if flexible {
+            coordinator.start(with: [], preferences: AppPreferences(
+                workScheduleMode: .flexible,
+                flexibleWork: FlexibleWorkSettings(breakInterval: 1800, breakDuration: 300)
+            ))
+            coordinator.startWork(now: Date() - 1800)
+        } else {
+            coordinator.start(with: [schedule], preferences: AppPreferences(waitForBreakReturn: true))
+        }
+        try #require(await waitUntil { locker.isShowing })
 
-        coordinator.pause(for: 300)
-        try? await Task.sleep(for: .milliseconds(50))
+        let deadline: Date
+        if flexible {
+            let progress = try #require(locker.lastFlexibleProgress)
+            #expect(progress.creditedDuration == progress.targetDuration)
+            #expect(locker.lastDuration == 0)
+            deadline = progress.deadline
+        } else {
+            let shownAt = try #require(locker.lastShownAt)
+            let duration = try #require(locker.lastDuration)
+            deadline = shownAt.addingTimeInterval(duration)
+        }
+        let suspend: (Date) -> Void = switch suspension {
+        case .sleep: coordinator.handleSystemSleep(now:)
+        case .lock: coordinator.handleScreenLock(now:)
+        }
+        suspend(deadline)
+        suspend(deadline.addingTimeInterval(1))
 
-        coordinator.handleSystemSleep()
-        let countBeforeWake = scheduledEvents.count
-        coordinator.handleSystemWake()
-        try? await Task.sleep(for: .milliseconds(100))
+        let expectedCompletions = flexible ? 1 : 0
+        let expectedSkips = flexible ? 0 : 1
+        try #require(await waitUntil {
+            completions == expectedCompletions && skips == expectedSkips
+                && statistics?.breaksCompleted == expectedCompletions
+                && statistics?.breaksSkipped == expectedSkips
+        })
+        #expect(!locker.isShowing)
+        if !flexible {
+            #expect(coordinator.captureEnforcementState().repetitionIndices[schedule.id] == 0)
+        }
+    }
 
-        #expect(resumeEvent != nil)
-        #expect(scheduledEvents.count > countBeforeWake)
+    @Test(arguments: [Suspension.sleep, .lock]) @MainActor
+    func suspensionBeforeDeadlineKeepsPause(_ suspension: Suspension) async {
+        let scheduler = MockScheduler()
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
+        defer { coordinator.stop() }
+        let now = Date()
+        coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
+        coordinator.pause(until: now.addingTimeInterval(300), now: now)
 
-        coordinator.stop()
-        listener.cancel()
+        switch suspension {
+        case .sleep:
+            coordinator.handleSystemSleep(now: now)
+            coordinator.handleSystemWake(now: now.addingTimeInterval(1))
+        case .lock:
+            coordinator.handleScreenLock(now: now)
+            coordinator.handleScreenUnlock(now: now.addingTimeInterval(1))
+        }
+
+        #expect(coordinator.localStatus(now: now.addingTimeInterval(1)).planState == .paused)
     }
 
     @Test @MainActor
-    func screenLockDuringPauseResumesOnUnlock() async {
+    func sleepAcrossDeadlineEmitsOneExpiredResume() async {
         let scheduler = MockScheduler()
         scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
-        let detector = MockDetector()
-        let locker = MockLocker()
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
+        defer { coordinator.stop() }
+        let now = Date()
+        coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
 
-        let coordinator = BreakCoordinator(scheduler: scheduler, detector: detector, locker: locker)
-        let schedule = makeSchedule()
-
-        var resumeEvent: CoordinatorEvent?
-        var scheduledEvents: [CoordinatorEvent] = []
+        var resumeReasons: [ScheduleResumeReason] = []
         let listener = Task {
             for await event in coordinator.events {
-                if case .scheduleResumed = event { resumeEvent = event }
-                if case .nextBreakScheduled = event { scheduledEvents.append(event) }
+                if case .scheduleResumed(let reason) = event { resumeReasons.append(reason) }
             }
         }
+        defer { listener.cancel() }
 
-        coordinator.start(with: [schedule], preferences: AppPreferences())
-        try? await Task.sleep(for: .milliseconds(50))
+        coordinator.pause(until: now.addingTimeInterval(10), now: now)
+        coordinator.handleSystemSleep(now: now)
+        coordinator.handleSystemWake(now: now.addingTimeInterval(11))
 
-        coordinator.pause(for: 300)
-        try? await Task.sleep(for: .milliseconds(50))
+        #expect(await waitUntil { resumeReasons.count == 1 })
+        coordinator.resume()
+        coordinator.handleSystemSleep(now: now.addingTimeInterval(12))
+        coordinator.handleSystemWake(now: now.addingTimeInterval(13))
+        #expect(resumeReasons == [.expired])
+    }
 
-        coordinator.handleScreenLock()
-        let countBeforeUnlock = scheduledEvents.count
-        coordinator.handleScreenUnlock()
-        try? await Task.sleep(for: .milliseconds(100))
+    @Test @MainActor
+    func restoredUnexpiredPauseKeepsItsDeadline() async {
+        let scheduler = MockScheduler()
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
+        defer { coordinator.stop() }
+        let now = Date()
+        let deadline = now.addingTimeInterval(300)
+        coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
 
-        #expect(resumeEvent != nil)
-        #expect(scheduledEvents.count > countBeforeUnlock)
+        var pausedUntil: Date?
+        let listener = Task {
+            for await event in coordinator.events {
+                if case .schedulePaused(let until) = event { pausedUntil = until }
+            }
+        }
+        defer { listener.cancel() }
 
-        coordinator.stop()
-        listener.cancel()
+        coordinator.restorePause(until: deadline, now: now)
+
+        #expect(await waitUntil { pausedUntil == deadline })
+        #expect(coordinator.localStatus(now: now).planState == .paused)
+    }
+
+    @Test @MainActor
+    func restoredExpiredPauseEmitsExpiredResume() async {
+        let scheduler = MockScheduler()
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(60)
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: MockDetector(), locker: MockLocker())
+        defer { coordinator.stop() }
+        let now = Date()
+        coordinator.start(with: [makeSchedule()], preferences: AppPreferences())
+
+        var resumeReasons: [ScheduleResumeReason] = []
+        let listener = Task {
+            for await event in coordinator.events {
+                if case .scheduleResumed(let reason) = event { resumeReasons.append(reason) }
+            }
+        }
+        defer { listener.cancel() }
+
+        coordinator.restorePause(until: now.addingTimeInterval(-1), now: now)
+
+        #expect(await waitUntil { resumeReasons == [.expired] })
+        #expect(coordinator.localStatus(now: now).planState != .paused)
     }
 
     // MARK: - Cycle Index Tests
@@ -1748,7 +1899,7 @@ struct BreakCoordinatorTests {
         var scheduled: [Date] = []
         let listener = Task {
             for await event in coordinator.events {
-                if case .nextBreakScheduled(let date) = event { scheduled.append(date) }
+                if case .nextBreakScheduled(let date, _) = event { scheduled.append(date) }
             }
         }
 
@@ -2047,6 +2198,56 @@ struct BreakCoordinatorPostponeTests {
         return (coordinator, scheduler, detector, locker, schedule)
     }
 
+    enum ActiveBreakAction {
+        case skip
+        case postpone
+    }
+
+    @Test(arguments: [
+        (action: ActiveBreakAction.skip, expired: false),
+        (action: ActiveBreakAction.skip, expired: true),
+        (action: ActiveBreakAction.postpone, expired: false),
+        (action: ActiveBreakAction.postpone, expired: true),
+    ])
+    func fixedBreakActionsStopAtDeadline(action: ActiveBreakAction, expired: Bool) async throws {
+        let (coordinator, _, _, locker, _) = await startWithActiveBreak()
+        defer { coordinator.stop() }
+        let shownAt = try #require(locker.lastShownAt)
+        let duration = try #require(locker.lastDuration)
+        let actionAt = shownAt.addingTimeInterval(duration + (expired ? 0 : -1))
+        var skipped = 0
+        var deferred = 0
+        var statistics: BreakStatistics?
+        let listener = Task {
+            for await event in coordinator.events {
+                if case .breakSkipped = event { skipped += 1 }
+                if case .breakDeferred(.postponed, _) = event { deferred += 1 }
+                if case .statisticsUpdated(let stats) = event { statistics = stats }
+            }
+        }
+        defer { listener.cancel() }
+
+        switch action {
+        case .skip: coordinator.skipActiveBreak(now: actionAt)
+        case .postpone: coordinator.postponeActiveBreak(now: actionAt)
+        }
+
+        let expectedSkips = action == .skip && !expired ? 1 : 0
+        let expectedDeferrals = action == .postpone && !expired ? 1 : 0
+        if expired {
+            try? await Task.sleep(for: .milliseconds(50))
+        } else {
+            try #require(await waitUntil {
+                statistics?.breaksSkipped == expectedSkips && statistics?.breaksDeferred == expectedDeferrals
+            })
+        }
+        #expect(locker.isShowing == expired)
+        #expect(skipped == expectedSkips)
+        #expect(deferred == expectedDeferrals)
+        #expect((statistics?.breaksSkipped ?? 0) == expectedSkips)
+        #expect((statistics?.breaksDeferred ?? 0) == expectedDeferrals)
+    }
+
     @Test
     func postponeIsNotASkip() async {
         var stats = BreakStatistics()
@@ -2114,23 +2315,24 @@ struct BreakCoordinatorPostponeTests {
         coordinator.postponeActiveBreak()
 
         // Earlier events are buffered; only a date near the return delay is the countdown.
-        var returnDates: [Date] = []
+        var returnEvents: [(date: Date, deferralReason: DeferralReason?)] = []
         let listener = Task {
             for await event in coordinator.events {
-                if case .nextBreakScheduled(let date) = event,
-                   date.timeIntervalSinceNow > 30 { returnDates.append(date) }
+                if case .nextBreakScheduled(let date, let deferralReason) = event,
+                   date.timeIntervalSinceNow > 30 { returnEvents.append((date, deferralReason)) }
             }
         }
 
         try? await Task.sleep(for: .milliseconds(300))
-        #expect(returnDates.isEmpty)
+        #expect(returnEvents.isEmpty)
 
         let clearedAt = Date()
         detector.contextToReturn = .clear
         try? await Task.sleep(for: .milliseconds(300))
-        #expect(returnDates.count == 1)
-        if let date = returnDates.first {
-            #expect(abs(date.timeIntervalSince(clearedAt) - 60) < 1)
+        #expect(returnEvents.count == 1)
+        if let event = returnEvents.first {
+            #expect(abs(event.date.timeIntervalSince(clearedAt) - 60) < 1)
+            #expect(event.deferralReason == .postponed)
         }
 
         coordinator.stop()

@@ -14,3 +14,9 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing anything. It covers setu
 - Keep AI out of git metadata: no `Co-Authored-By:` trailers naming an AI tool, no "Generated with" lines in commits or PR descriptions.
 
 For issue tracking, triage, and domain vocabulary, see [Agent skills](CLAUDE.md#agent-skills).
+
+## Personal preview packaging
+
+- Use ad hoc signing for the fork's personal preview. Preserve the installed preview's `com.yagizdokumaci.standlock.debug` bundle identifier and set `StandLockPreviewCommit` to the source commit before signing.
+- Stage the app at `$RUNNER_TEMP/export/StandLock.app` and run `SIGNING_IDENTITY=- scripts/resign-app.sh`. This path requires no Developer ID credentials or Apple notarization.
+- Verify with `codesign --verify --deep --strict` and package with `ditto -c -k --keepParent --rsrc --sequesterRsrc`.
