@@ -861,8 +861,9 @@ final class AppCoordinator: ObservableObject {
                 recalculateProgress()
                 updateMenuBarTimer()
 
-                let interval: Duration = if pausePresentation != nil {
-                    .seconds(1)
+                let pauseUpdateInterval = pausePresentation?.nextMenuBarUpdate(after: Date())?.timeIntervalSinceNow
+                let interval: Duration = if let pauseUpdateInterval {
+                    .seconds(max(0.001, pauseUpdateInterval))
                 } else if let remaining = nextBreakTime?.timeIntervalSinceNow,
                           menuBarTimerText != nil, remaining < 60 {
                     .seconds(1)
