@@ -60,7 +60,10 @@ struct TroubleshootingTests {
     }
 
     /// A postponed break was the user's choice, and a running or counting state needs no fix.
-    @Test(arguments: [NextBreakState.deferred(.postponed), .breakActive, .countingDown(to: Date(timeIntervalSinceReferenceDate: 0))])
+    @Test(arguments: [
+        NextBreakState.deferred(.postponed), .postponed(returnAt: Date(timeIntervalSinceReferenceDate: 0)),
+        .breakActive, .countingDown(to: Date(timeIntervalSinceReferenceDate: 0)),
+    ])
     func nothingToFix(state: NextBreakState) {
         #expect(TroubleshootingFix(state) == nil)
     }

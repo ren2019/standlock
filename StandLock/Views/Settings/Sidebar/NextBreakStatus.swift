@@ -29,6 +29,22 @@ struct NextBreakStatus: View {
                     .foregroundStyle(.primary)
                 Text(LocalizedStringKey(reason.displayName))
             }
+        case .postponed(let nextBreak):
+            VStack(alignment: .leading, spacing: SettingsTokens.sidebarFooterLineSpacing) {
+                Text("Break waiting")
+                    .foregroundStyle(.primary)
+                Text(LocalizedStringKey(DeferralReason.postponed.displayName))
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Next break")
+                    Spacer()
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(formatCountdown(secondsRemaining: breakSecondsRemaining(until: nextBreak, now: context.date)))
+                            .font(BreakTypography.timerNumerals(size: SettingsTokens.countdownSize))
+                            .monospacedDigit()
+                            .foregroundStyle(.primary)
+                    }
+                }
+            }
         case .countingDown(let nextBreak):
             HStack(alignment: .firstTextBaseline) {
                 Text("Next break")

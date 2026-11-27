@@ -15,7 +15,7 @@ public enum MenuSceneLook: Equatable, Sendable {
             self = .timeToStand
         case .paused:
             self = .paused
-        case .deferred:
+        case .deferred, .postponed:
             self = .breakWaiting
         case .countingDown(let nextBreak):
             // The rounded seconds, so the look turns when the digits read 1:00.
@@ -26,7 +26,7 @@ public enum MenuSceneLook: Equatable, Sendable {
     }
 
     /// During a session, a covered phase that is not on screen waits: a postponed break counts
-    /// down to its return through `.countingDown`, which would otherwise read as focus. In cover
+    /// down to its return through `.postponed`, which would otherwise read as focus. In cover
     /// mode the open break is rest, so it reads as standing.
     public init(state: NextBreakState, pomodoro: PomodoroStatus?, now: Date = Date()) {
         if let pomodoro, pomodoro.isCovered, state != .breakActive {

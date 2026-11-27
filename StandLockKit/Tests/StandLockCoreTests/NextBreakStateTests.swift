@@ -55,6 +55,10 @@ struct NextBreakStateTests {
         #expect(state(isPaused: true, hasSchedules: false) == .noSchedules)
     }
 
+    @Test func aPostponedBreakKeepsItsReturnDate() {
+        #expect(state(deferralReason: .postponed, nextBreakTime: next) == .postponed(returnAt: next))
+    }
+
     @Test func aDeferralWinsOverTheNextBreak() {
         let result = state(deferralReason: .screenSharing, nextBreakTime: next)
         #expect(result == .deferred(.screenSharing))

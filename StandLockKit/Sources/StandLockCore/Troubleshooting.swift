@@ -37,7 +37,7 @@ public enum TroubleshootingFix: Equatable, Sendable {
         case .paused: self = .resume
         case .noActiveSchedules, .noSchedules: self = .openSchedules
         case .deferred(let reason) where reason != .postponed: self = .openDetection
-        case .deferred, .breakActive, .countingDown, .waitingForWork: return nil
+        case .deferred, .postponed, .breakActive, .countingDown, .waitingForWork: return nil
         }
     }
 }
