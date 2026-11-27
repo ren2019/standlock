@@ -71,10 +71,10 @@ trap cleanup EXIT
 if ! ARCHIVE_LIST=$(zipinfo -1 "$ZIP" 2>/dev/null); then
   fail "not a readable zip: $ZIP"
 fi
-ARCHIVE_ROOTS=$(printf '%s\n' "$ARCHIVE_LIST" | awk -F/ 'NF && $1 != "" {print $1}' | sort -u)
+ARCHIVE_ROOTS=$(printf '%s\n' "$ARCHIVE_LIST" | awk -F/ 'NF && $1 != "" {print $1}' | LC_ALL=C sort -u)
 case "$ARCHIVE_ROOTS" in
   StandLock.app) ;;
-  $'__MACOSX\nStandLock.app')
+  $'StandLock.app\n__MACOSX')
     METADATA_ROOTS=$(printf '%s\n' "$ARCHIVE_LIST" | awk -F/ '$1 == "__MACOSX" && $2 != "" {print $2}' | sort -u)
     [ "$METADATA_ROOTS" = "StandLock.app" ] || fail "zip must contain exactly one top-level StandLock.app"
     ;;
