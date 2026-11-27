@@ -1342,6 +1342,71 @@ struct BreakCoordinatorTests {
         case lock
     }
 
+    @Test(arguments: [
+        (flexible: false, suspension: Suspension.sleep),
+        (flexible: false, suspension: Suspension.lock),
+        (flexible: true, suspension: Suspension.sleep),
+        (flexible: true, suspension: Suspension.lock),
+    ]) @MainActor
+    func suspensionAfterDeadlineCompletesScheduledBreakOnce(
+        flexible: Bool, suspension: Suspension
+    ) async throws {
+        let scheduler = MockScheduler()
+        scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(0.05)
+        let detector = MockDetector()
+        detector.contextToReturn = DetectionContext(idleDuration: flexible ? 300 : 0)
+        let locker = MockLocker()
+        let coordinator = BreakCoordinator(scheduler: scheduler, detector: detector, locker: locker)
+        var completions = 0
+        var skips = 0
+        var statistics: BreakStatistics?
+        let listener = Task {
+            for await event in coordinator.events {
+                if case .breakCompleted = event { completions += 1 }
+                if case .breakSkipped = event { skips += 1 }
+                if case .statisticsUpdated(let stats) = event { statistics = stats }
+            }
+        }
+        defer {
+            coordinator.stop()
+            listener.cancel()
+        }
+
+        if flexible {
+            coordinator.start(with: [], preferences: AppPreferences(
+                workScheduleMode: .flexible,
+                flexibleWork: FlexibleWorkSettings(breakInterval: 1800, breakDuration: 300)
+            ))
+            coordinator.startWork(now: Date() - 1800)
+        } else {
+            coordinator.start(with: [makeSchedule(breakDuration: 10)], preferences: AppPreferences())
+        }
+        try #require(await waitUntil { locker.isShowing })
+
+        let deadline: Date
+        if flexible {
+            let progress = try #require(locker.lastFlexibleProgress)
+            #expect(progress.creditedDuration == progress.targetDuration)
+            #expect(locker.lastDuration == 0)
+            deadline = progress.deadline
+        } else {
+            let shownAt = try #require(locker.lastShownAt)
+            let duration = try #require(locker.lastDuration)
+            deadline = shownAt.addingTimeInterval(duration)
+        }
+        let suspend: (Date) -> Void = switch suspension {
+        case .sleep: coordinator.handleSystemSleep(now:)
+        case .lock: coordinator.handleScreenLock(now:)
+        }
+        suspend(deadline)
+        suspend(deadline.addingTimeInterval(1))
+
+        try #require(await waitUntil { completions == 1 && statistics?.breaksCompleted == 1 })
+        #expect(skips == 0)
+        #expect(statistics?.breaksSkipped == 0)
+        #expect(!locker.isShowing)
+    }
+
     @Test(arguments: [Suspension.sleep, .lock]) @MainActor
     func suspensionBeforeDeadlineKeepsPause(_ suspension: Suspension) async {
         let scheduler = MockScheduler()
@@ -2121,6 +2186,56 @@ struct BreakCoordinatorPostponeTests {
         try? await Task.sleep(for: .milliseconds(300))
         scheduler.nextBreakTimeToReturn = Date().addingTimeInterval(600)
         return (coordinator, scheduler, detector, locker, schedule)
+    }
+
+    enum ActiveBreakAction {
+        case skip
+        case postpone
+    }
+
+    @Test(arguments: [
+        (action: ActiveBreakAction.skip, expired: false),
+        (action: ActiveBreakAction.skip, expired: true),
+        (action: ActiveBreakAction.postpone, expired: false),
+        (action: ActiveBreakAction.postpone, expired: true),
+    ])
+    func fixedBreakActionsStopAtDeadline(action: ActiveBreakAction, expired: Bool) async throws {
+        let (coordinator, _, _, locker, _) = await startWithActiveBreak()
+        defer { coordinator.stop() }
+        let shownAt = try #require(locker.lastShownAt)
+        let duration = try #require(locker.lastDuration)
+        let actionAt = shownAt.addingTimeInterval(duration + (expired ? 0 : -1))
+        var skipped = 0
+        var deferred = 0
+        var statistics: BreakStatistics?
+        let listener = Task {
+            for await event in coordinator.events {
+                if case .breakSkipped = event { skipped += 1 }
+                if case .breakDeferred(.postponed, _) = event { deferred += 1 }
+                if case .statisticsUpdated(let stats) = event { statistics = stats }
+            }
+        }
+        defer { listener.cancel() }
+
+        switch action {
+        case .skip: coordinator.skipActiveBreak(now: actionAt)
+        case .postpone: coordinator.postponeActiveBreak(now: actionAt)
+        }
+
+        let expectedSkips = action == .skip && !expired ? 1 : 0
+        let expectedDeferrals = action == .postpone && !expired ? 1 : 0
+        if expired {
+            try? await Task.sleep(for: .milliseconds(50))
+        } else {
+            try #require(await waitUntil {
+                statistics?.breaksSkipped == expectedSkips && statistics?.breaksDeferred == expectedDeferrals
+            })
+        }
+        #expect(locker.isShowing == expired)
+        #expect(skipped == expectedSkips)
+        #expect(deferred == expectedDeferrals)
+        #expect((statistics?.breaksSkipped ?? 0) == expectedSkips)
+        #expect((statistics?.breaksDeferred ?? 0) == expectedDeferrals)
     }
 
     @Test

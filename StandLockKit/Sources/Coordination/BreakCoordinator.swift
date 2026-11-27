@@ -414,7 +414,7 @@ public final class BreakCoordinator {
             pomodoro = session
         }
         suspendedAt = suspendedAt ?? now
-        cancelAndDismissIfShowing()
+        cancelAndDismissIfShowing(now: now)
         if usesFlexibleWork && pomodoro == nil { eventContinuation.yield(.scheduleIdle) }
     }
 
@@ -434,14 +434,19 @@ public final class BreakCoordinator {
         }
     }
 
-    private func cancelAndDismissIfShowing() {
+    private func cancelAndDismissIfShowing(now: Date) {
         breakTimer?.cancel()
         breakTimer = nil
         clearPendingBreak()
         if locker.isShowing {
-            locker.dismissOverlay()
             // A session's break waits for the return instead (S84): time away may cover it.
             let isSessionBreak = currentSource?.schedule == nil && pomodoro != nil
+            if let event = currentBreak, let source = currentSource, !isSessionBreak,
+               now >= deadline(for: event) {
+                completeBreak(event: event, source: source)
+                return
+            }
+            locker.dismissOverlay()
             if let event = currentBreak, !isSessionBreak {
                 eventContinuation.yield(.breakSkipped(event))
                 countSkippedBreak()
@@ -537,7 +542,7 @@ public final class BreakCoordinator {
 
     public func skipActiveBreak(now: Date = Date()) {
         guard let event = currentBreak else { return }
-        if let progress = event.flexibleProgress, now >= progress.deadline { return }
+        if event.scheduleId != nil, now >= deadline(for: event) { return }
         if isFocusCover(currentSource) {
             endFocusCover(.breakSkipped(event), playCue: false)
             return
@@ -584,7 +589,7 @@ public final class BreakCoordinator {
     /// wait ignores the detection preferences: postponing is the user saying they are on a call.
     public func postponeActiveBreak(now: Date = Date()) {
         guard let event = currentBreak, let source = currentSource, activeBreakCanPostpone else { return }
-        if let progress = event.flexibleProgress, now >= progress.deadline { return }
+        if source.schedule != nil, now >= deadline(for: event) { return }
         breakTimer?.cancel()
         breakTimer = nil
         locker.dismissOverlay()
@@ -645,6 +650,10 @@ public final class BreakCoordinator {
         let returnAt = since.addingTimeInterval(preferences.postponeReturnDelay)
         if let notBefore = launchGuard?.notBefore { return max(returnAt, notBefore) }
         return returnAt
+    }
+
+    private func deadline(for event: BreakEvent) -> Date {
+        event.flexibleProgress?.deadline ?? event.scheduledAt.addingTimeInterval(event.duration)
     }
 
     public func completeActiveBreak(now: Date = Date()) {

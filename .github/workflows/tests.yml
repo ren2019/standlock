@@ -7,6 +7,10 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      signed:
+        description: Sign and notarize with the Developer ID credentials
+        type: boolean
+        default: true
       marketing_version:
         description: Marketing version
         required: true
@@ -22,7 +26,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tests-${{ github.ref }}
+  group: tests-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -40,6 +44,7 @@ jobs:
 
   # swift test never compiles the app target.
   build:
+    if: github.event_name != 'workflow_dispatch' || !inputs.signed
     runs-on: macos-26
 
     steps:
@@ -49,6 +54,21 @@ jobs:
           persist-credentials: false
 
       - name: Build the app
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          xcodebuild build \
+            -project StandLock.xcodeproj \
+            -scheme StandLock \
+            -configuration Debug \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build the unsigned preview
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ inputs.marketing_version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
         run: |
           xcodebuild build \
             -project StandLock.xcodeproj \
@@ -57,22 +77,26 @@ jobs:
             -destination 'generic/platform=macOS' \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             ARCHS=arm64 \
-            OTHER_SWIFT_FLAGS='-Xfrontend -disable-default-cmo' \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            OTHER_SWIFT_FLAGS='-Xfrontend -disable-cmo' \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Package the Release app
+        if: github.event_name == 'workflow_dispatch'
         run: ditto -c -k --keepParent "$RUNNER_TEMP/DerivedData/Build/Products/Release/StandLock.app" "$RUNNER_TEMP/StandLock.zip"
 
       - name: Upload the Release app artifact
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: StandLock-${{ github.sha }}
+          name: StandLock-unsigned-${{ github.sha }}
           path: ${{ runner.temp }}/StandLock.zip
           retention-days: 7
 
   install:
-    if: github.event_name == 'workflow_dispatch'
-    needs: [test, build]
+    if: github.event_name == 'workflow_dispatch' && inputs.signed
+    needs: test
     runs-on: macos-26
     env:
       SCHEME: StandLock
@@ -85,9 +109,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Run StandLockKit tests
-        run: swift test --package-path StandLockKit
 
       - name: Setup keychain and import certificate
         env:
@@ -125,7 +146,7 @@ jobs:
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             ARCHS=arm64 \
-            OTHER_SWIFT_FLAGS='-Xfrontend -disable-default-cmo' \
+            OTHER_SWIFT_FLAGS='-Xfrontend -disable-cmo' \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             CODE_SIGN_STYLE="Manual" \
             DEVELOPMENT_TEAM="$TEAM_ID"

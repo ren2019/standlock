@@ -308,7 +308,9 @@ struct PomodoroSessionCoordinationTests {
         coordinator.pause(for: 3600)
         startEndingFocus(coordinator)
         #expect(await waitUntil { locker.isShowing })
-        #expect(log.events.contains { if case .scheduleResumed(.manual) = $0 { true } else { false } })
+        #expect(await waitUntil {
+            log.events.contains { if case .scheduleResumed(.manual) = $0 { true } else { false } }
+        })
     }
 
     @Test
@@ -913,8 +915,7 @@ struct PomodoroFocusCoverTests {
         defer { coordinator.stop() }
         restoreOpenPhaseEndingNow(coordinator, .shortBreak(afterRound: 1))
         #expect(await waitUntil { locker.isShowing })
-        #expect(log.completed == 1)
-        #expect(log.stats?.currentStreak == 4)
+        #expect(await waitUntil { log.completed == 1 && log.stats?.currentStreak == 4 })
         #expect(locker.lastPomodoroChip == PomodoroChip(round: 2, rounds: 2, isLong: false, isFocus: true))
         try? await Task.sleep(for: .milliseconds(100))
         #expect(log.completed == 1)

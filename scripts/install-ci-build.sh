@@ -36,7 +36,7 @@ case "$BUILD" in
 esac
 [ -f "$ZIP" ] || fail "zip not found: $ZIP"
 
-for tool in codesign ditto file scp spctl ssh zipinfo; do
+for tool in codesign ditto file scp shasum spctl ssh zipinfo; do
   command -v "$tool" >/dev/null 2>&1 || fail "required tool not found: $tool"
 done
 [ -x "$PLIST_BUDDY" ] || fail "PlistBuddy not found"
@@ -96,6 +96,8 @@ printf '%s\n' "$CODESIGN_INFO" | grep -Fqx "Identifier=$BUNDLE_ID" || fail "unex
 printf '%s\n' "$CODESIGN_INFO" | grep -Fqx "TeamIdentifier=$TEAM_ID" || fail "unexpected signing team"
 codesign --verify --deep --strict "$APP"
 spctl --assess --type execute "$APP"
+ZIP_SHA256=$(shasum -a 256 < "$ZIP" | cut -d ' ' -f 1)
+EXECUTABLE_SHA256=$(shasum -a 256 < "$EXECUTABLE" | cut -d ' ' -f 1)
 status "Validated signed StandLock.app $VERSION ($BUILD)"
 
 BACKUP_DIR=${BACKUP_DIR:-"$REPO_ROOT/work/backup"}
@@ -149,7 +151,8 @@ if ! scp -o BatchMode=yes -- "$ZIP" "$SSH_HOST:$REMOTE_TMP/StandLock.zip"; then
 fi
 status "Uploaded signed app"
 
-if ! INSTALL_RESULT=$(remote_bash "$VERSION" "$BUILD" "$BUNDLE_ID" "$EXPECTED_DISPLAY_NAME" "$TEAM_ID" "$REMOTE_TMP" <<'REMOTE_INSTALL_EOF'
+if ! INSTALL_RESULT=$(remote_bash "$VERSION" "$BUILD" "$BUNDLE_ID" "$EXPECTED_DISPLAY_NAME" "$TEAM_ID" "$REMOTE_TMP" \
+  "$ZIP_SHA256" "$EXECUTABLE_SHA256" <<'REMOTE_INSTALL_EOF'
 set -euo pipefail
 EXPECTED_VERSION=$1
 EXPECTED_BUILD=$2
@@ -157,6 +160,8 @@ EXPECTED_BUNDLE_ID=$3
 EXPECTED_DISPLAY_NAME=$4
 EXPECTED_TEAM_ID=$5
 REMOTE_TMP=$6
+EXPECTED_ZIP_SHA256=$7
+EXPECTED_EXECUTABLE_SHA256=$8
 APP=/Applications/StandLock.app
 PROCESS_PATTERN='^/Applications/StandLock[.]app/Contents/MacOS/StandLock$'
 PLIST_BUDDY=/usr/libexec/PlistBuddy
@@ -179,6 +184,7 @@ verify_app() {
   executable_name=$("$PLIST_BUDDY" -c 'Print :CFBundleExecutable' "$info" 2>/dev/null)
   executable="$candidate/Contents/MacOS/$executable_name"
   [ -x "$executable" ] || fail "app executable is missing or not executable"
+  [ "$(shasum -a 256 < "$executable" | cut -d ' ' -f 1)" = "$EXPECTED_EXECUTABLE_SHA256" ] || fail "app executable does not match the CI artifact"
   file -b "$executable" | grep -q 'Mach-O' || fail "app executable is not Mach-O"
   if ! codesign_info=$(codesign -dvv "$candidate" 2>&1); then
     fail "could not read app signature"
@@ -191,6 +197,7 @@ verify_app() {
 
 UNPACK_DIR="$REMOTE_TMP/unpacked"
 UNPACKED_APP="$UNPACK_DIR/StandLock.app"
+[ "$(shasum -a 256 < "$REMOTE_TMP/StandLock.zip" | cut -d ' ' -f 1)" = "$EXPECTED_ZIP_SHA256" ] || fail "transferred archive does not match the CI artifact"
 mkdir -p "$UNPACK_DIR"
 ditto -x -k "$REMOTE_TMP/StandLock.zip" "$UNPACK_DIR"
 verify_app "$UNPACKED_APP"
@@ -198,43 +205,67 @@ verify_app "$UNPACKED_APP"
 STAGING=$(mktemp -d /Applications/.standlock-install.XXXXXX)
 STAGED_APP="$STAGING/StandLock.app"
 PREVIOUS_APP="$STAGING/Previous.app"
+INSTALL_SUCCEEDED=false
+WAS_RUNNING=false
+stop_production() {
+  if pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1; then
+    pkill -TERM -f "$PROCESS_PATTERN" || true
+    for _ in {1..50}; do
+      pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 || break
+      sleep 0.1
+    done
+  fi
+  ! pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1
+}
 cleanup_remote() {
+  local result=$?
+  trap - EXIT
+  set +e
+  if [ "$INSTALL_SUCCEEDED" != true ]; then
+    result=1
+    if [ -e "$PREVIOUS_APP" ]; then
+      stop_production
+      rm -rf "$APP"
+      if ! mv "$PREVIOUS_APP" "$APP"; then
+        printf 'error: could not restore previous StandLock.app; preserved at %s\n' "$PREVIOUS_APP" >&2
+        rm -rf "$UNPACK_DIR"
+        exit "$result"
+      fi
+    fi
+    if [ "$WAS_RUNNING" = true ] && ! pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1; then
+      open -a "$APP" || printf 'error: could not relaunch the previous StandLock.app\n' >&2
+    fi
+  fi
   rm -rf "$UNPACK_DIR" "$STAGING"
+  exit "$result"
 }
 trap cleanup_remote EXIT
+trap 'exit 1' HUP INT TERM
 
 ditto "$UNPACKED_APP" "$STAGED_APP"
 verify_app "$STAGED_APP"
 if pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1; then
-  pkill -TERM -f "$PROCESS_PATTERN" || true
-  for _ in {1..50}; do
-    pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 || break
-    sleep 0.1
-  done
+  WAS_RUNNING=true
 fi
-pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 && fail "production StandLock is still running"
+stop_production || fail "production StandLock is still running"
 
 mv "$APP" "$PREVIOUS_APP"
-if ! mv "$STAGED_APP" "$APP"; then
-  mv "$PREVIOUS_APP" "$APP"
-  fail "could not move the staged app into place"
-fi
-if ! verify_app "$APP"; then
-  rm -rf "$APP"
-  mv "$PREVIOUS_APP" "$APP"
-  exit 1
-fi
+mv "$STAGED_APP" "$APP"
+verify_app "$APP"
 
-open -a /Applications/StandLock.app
+open -a "$APP"
 for _ in {1..100}; do
   pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 && break
   sleep 0.1
 done
 pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 || fail "StandLock did not start"
 INFO="$APP/Contents/Info.plist"
-"$PLIST_BUDDY" -c 'Print :CFBundleIdentifier' "$INFO"
-"$PLIST_BUDDY" -c 'Print :CFBundleShortVersionString' "$INFO"
-"$PLIST_BUDDY" -c 'Print :CFBundleVersion' "$INFO"
+INSTALLED_BUNDLE_ID=$("$PLIST_BUDDY" -c 'Print :CFBundleIdentifier' "$INFO")
+INSTALLED_VERSION=$("$PLIST_BUDDY" -c 'Print :CFBundleShortVersionString' "$INFO")
+INSTALLED_BUILD=$("$PLIST_BUDDY" -c 'Print :CFBundleVersion' "$INFO")
+[ "$INSTALLED_BUNDLE_ID" = "$EXPECTED_BUNDLE_ID" ] && [ "$INSTALLED_VERSION" = "$EXPECTED_VERSION" ] && [ "$INSTALLED_BUILD" = "$EXPECTED_BUILD" ] || fail "installed version readback did not match"
+printf '%s\n%s\n%s\n' "$INSTALLED_BUNDLE_ID" "$INSTALLED_VERSION" "$INSTALLED_BUILD"
+INSTALL_SUCCEEDED=true
 REMOTE_INSTALL_EOF
 ); then
   fail "remote installation failed; backup kept at $BACKUP_PATH"
