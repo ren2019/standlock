@@ -5,12 +5,19 @@ import StandLockCore
 /// publishes stop here.
 struct ScheduleStatusView: View {
     let schedule: Schedule
+    let status: FixedScheduleStatus
     @EnvironmentObject private var checker: PermissionChecker
     @EnvironmentObject private var languageStore: LanguageStore
     @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: SettingsTokens.listItemSpacing) {
+            if status == .inactive {
+                Text("This schedule is inactive in Flexible work.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             HStack(spacing: 8) {
                 Text(daysSummary)
                 Text("•")
@@ -26,7 +33,7 @@ struct ScheduleStatusView: View {
             // The stored level stays Strict and the badge keeps saying so; what changes is
             // how the break is enforced. Without this row the settings window claims Strict
             // while the break behaves as Firm, with nothing on screen explaining the gap.
-            if checker.strictIsInactive(for: schedule) {
+            if status == .enabled, checker.strictIsInactive(for: schedule) {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle.fill")
                     Text("Strict inactive, running as Firm")

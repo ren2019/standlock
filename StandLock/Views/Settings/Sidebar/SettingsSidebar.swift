@@ -3,9 +3,10 @@ import StandLockCore
 
 struct SettingsSidebar: View {
     @ObservedObject var navigation: SettingsNavigation
-    /// Held, not observed: it publishes every second before a break, and only schedules matter here.
+    /// Held without observing the countdown publishes. Watch the schedules and work mode below.
     let coordinator: AppCoordinator
     @State private var schedules: [Schedule]
+    @State private var workMode: WorkScheduleMode
     @FocusState private var listFocused: Bool
     @AppStorage(SettingsDescription.showHelpKey) private var showHelp = true
     /// Observed so a language change re-resolves the search terms. It publishes on nothing else.
@@ -17,6 +18,7 @@ struct SettingsSidebar: View {
         self.navigation = navigation
         self.coordinator = coordinator
         _schedules = State(initialValue: coordinator.schedules)
+        _workMode = State(initialValue: coordinator.preferences.workScheduleMode)
     }
 
     var body: some View {
@@ -63,16 +65,26 @@ struct SettingsSidebar: View {
             if !scheduleRows.isEmpty || visible.contains(.newSchedule) {
                 Section {
                     ForEach(scheduleRows) { schedule in
-                        ScheduleSidebarRow(schedule: schedule, isSelected: navigation.page == .schedule(schedule.id))
-                            .tag(SettingsPage.schedule(schedule.id))
+                        ScheduleSidebarRow(
+                            schedule: schedule,
+                            status: FixedScheduleStatus(schedule: schedule, mode: workMode),
+                            isSelected: navigation.page == .schedule(schedule.id)
+                        )
+                        .tag(SettingsPage.schedule(schedule.id))
                     }
                     rows([.newSchedule].filter(visible.contains))
                 } header: {
                     HStack {
                         Text("Schedules")
                         Spacer()
-                        Text("\(schedules.filter(\.isEnabled).count) on")
-                            .padding(.trailing, SettingsTokens.sidebarHeaderInset)
+                        Group {
+                            if workMode == .flexible {
+                                Text("Inactive")
+                            } else {
+                                Text("\(schedules.filter(\.isEnabled).count) on")
+                            }
+                        }
+                        .padding(.trailing, SettingsTokens.sidebarHeaderInset)
                     }
                 }
                 .collapsible(false)
@@ -104,6 +116,9 @@ struct SettingsSidebar: View {
         .onReceive(coordinator.$schedules.removeDuplicates()) { value in
             schedules = value
             navigation.reconcile(scheduleIDs: value.map(\.id))
+        }
+        .onReceive(coordinator.$preferences.map(\.workScheduleMode).removeDuplicates()) { mode in
+            workMode = mode
         }
     }
 
