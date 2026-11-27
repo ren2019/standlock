@@ -857,11 +857,12 @@ final class AppCoordinator: ObservableObject {
     private func startProgressTimer() {
         progressTimer = Task {
             while !Task.isCancelled {
+                let now = Date()
                 rolloverDailyStatsIfNeeded()
                 recalculateProgress()
-                updateMenuBarTimer()
+                updateMenuBarTimer(at: now)
 
-                let pauseUpdateInterval = pausePresentation?.nextMenuBarUpdate(after: Date())?.timeIntervalSinceNow
+                let pauseUpdateInterval = pausePresentation?.nextMenuBarUpdate(after: now)?.timeIntervalSinceNow
                 let interval: Duration = if let pauseUpdateInterval {
                     .seconds(max(0.001, pauseUpdateInterval))
                 } else if let remaining = nextBreakTime?.timeIntervalSinceNow,
@@ -887,9 +888,8 @@ final class AppCoordinator: ObservableObject {
         }
     }
 
-    private func updateMenuBarTimer() {
+    private func updateMenuBarTimer(at now: Date = Date()) {
         refreshQuickActions()
-        let now = Date()
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if let presentation = pausePresentation, !presentation.isPaused,
            presentation.menuBarDisplay(at: now, reduceMotion: reduceMotion) == nil {
