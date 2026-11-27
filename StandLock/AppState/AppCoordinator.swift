@@ -668,6 +668,12 @@ final class AppCoordinator: ObservableObject {
         case .breakDeferred(let reason, _):
             if isBreakActive { clearActiveBreakState() }
             deferralReason = reason
+            if reason == .postponed {
+                nextBreakTime = nil
+                breakScheduledAt = nil
+                breakProgress = 0
+                updateMenuBarTimer()
+            }
 
         case .schedulePaused(let until):
             pausePresentation = .paused(resumeAt: until)
