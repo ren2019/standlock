@@ -171,7 +171,8 @@ REMOTE_TMP=$6
 EXPECTED_ZIP_SHA256=$7
 EXPECTED_EXECUTABLE_SHA256=$8
 APP=${STANDLOCK_INSTALL_APP:-/Applications/StandLock.app}
-PROCESS_PATTERN='^/Applications/StandLock[.]app/Contents/MacOS/StandLock$'
+ESCAPED_APP=$(printf '%s' "$APP" | sed 's/[^A-Za-z0-9]/\\&/g')
+PROCESS_PATTERN="^$ESCAPED_APP/Contents/MacOS/StandLock$"
 PLIST_BUDDY=/usr/libexec/PlistBuddy
 
 fail() {

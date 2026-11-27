@@ -114,6 +114,8 @@ struct InstallCIBuildTests {
                 """,
                 "pgrep": """
                 #!/bin/bash
+                expected_pattern="^$(printf '%s' "$STANDLOCK_INSTALL_APP" | sed 's/[^A-Za-z0-9]/\\\\&/g')/Contents/MacOS/StandLock$"
+                [ "${@: -1}" = "$expected_pattern" ] || exit 1
                 [ -f "$STANDLOCK_TEST_ROOT/process.state" ] || exit 1
                 checks=$(cat "$STANDLOCK_TEST_ROOT/process.checks")
                 checks=$((checks + 1))
@@ -125,6 +127,8 @@ struct InstallCIBuildTests {
                 """,
                 "pkill": """
                 #!/bin/bash
+                expected_pattern="^$(printf '%s' "$STANDLOCK_INSTALL_APP" | sed 's/[^A-Za-z0-9]/\\\\&/g')/Contents/MacOS/StandLock$"
+                [ "${@: -1}" = "$expected_pattern" ] || exit 1
                 rm -f "$STANDLOCK_TEST_ROOT/process.state"
                 """,
             ]
