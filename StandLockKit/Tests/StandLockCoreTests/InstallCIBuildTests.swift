@@ -158,6 +158,18 @@ struct InstallCIBuildTests {
         }
     }
 
+    @Test func restoresThePreviousVersionWhenTheNewProcessExits() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let package = try fixture.packageWithCICommand()
+        #expect(package.status == 0)
+
+        let installed = try fixture.install(exitAfterProcessChecks: 2)
+        #expect(installed.status != 0, Comment(rawValue: installed.output))
+        #expect(try fixture.installedVersion() == "1.0")
+        #expect(installed.output.contains("remote installation failed; backup kept at"))
+    }
+
     @Test func acceptsTheCIArchiveAndRejectsUnrelatedRoots() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }

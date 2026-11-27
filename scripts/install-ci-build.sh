@@ -268,6 +268,10 @@ for _ in {1..100}; do
   sleep 0.1
 done
 pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 || fail "StandLock did not start"
+for _ in {1..20}; do
+  pgrep -f "$PROCESS_PATTERN" >/dev/null 2>&1 || fail "StandLock exited during launch"
+  sleep 0.1
+done
 INFO="$APP/Contents/Info.plist"
 INSTALLED_BUNDLE_ID=$("$PLIST_BUDDY" -c 'Print :CFBundleIdentifier' "$INFO")
 INSTALLED_VERSION=$("$PLIST_BUDDY" -c 'Print :CFBundleShortVersionString' "$INFO")
